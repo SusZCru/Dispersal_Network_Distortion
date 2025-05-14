@@ -1,0 +1,1658 @@
+---
+title: "DataProccessing"
+format: html
+editor: visual
+---
+
+# Data Processing
+
+This code requires the raster layers of both explanatory and response variables for each of the 12 species and 3 scenarios; all in the correct coordinate reference system, pixel dimensions, and projection. This has been achieved in ARCGIS pro from secondarily sourced data combined with the corridor maps of our virtual species (the output of file one; 'CreatingVirtualSpecies'). With these inputs, here we compile the variables and take a random sample balanced by factor, and combine all 12 species into a single full sample. This should be used to replicate the sampling. If the exact results are desired, continue with the next script (analysis) and use our pre-saved samples when prompted.
+
+Load library:
+
+```{r install packages}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#isntall if needed, then library
+library(terra)
+library(ggplot2)
+library(dplyr)
+library(here)
+```
+
+Set functions:
+
+```{r load functions}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#Function to upload a raster layer, assign it a useful name, extract values to a seperate object (requied for later filtering out top 25 strongest corridors), and finally give the column a useful name
+upload.rastervals <- function(filepath, obj_name, val_obj_name, colname){
+  tempobj <- rast(filepath)
+  assign(obj_name, tempobj, envir = .GlobalEnv)
+  values_obj <- na.omit(values(tempobj))
+  colnames(values_obj) <- colname
+  assign(val_obj_name, values_obj, envir = .GlobalEnv)
+}
+
+#function to specify a percentile and use it to filter out pixels above the threshold
+extract.percentile <- function(dataframe, variable, percentile, outputname){
+  tempobj <- dataframe %>%
+    filter(variable <- quantile(dataframe$variable, percentile, na.rm= TRUE))
+  assign(outputname, tempobj, envir = .GlobalEnv)
+}
+```
+
+## Upload Layers
+
+First, we need to upload all the layers:
+
+```{r Uplaod Variable Layers}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#### HD 
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDsho126.tif"),
+                  "HDvulshort126", "HDvulshort126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDsho245.tif"),
+                  "HDvulshort245", "HDvulshort245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDsho585.tif"), 
+                  "HDvulshort585", "HDvulshort585_values", "Vulnerability")
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDlon126.tif"),
+                  "HDvullong126", "HDvullong126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDlon245.tif"),
+                  "HDvullong245", "HDvullong245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HD", "VulHDlon585.tif"),
+                  "HDvullong585", "HDvullong585_values", "Vulnerability")
+
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "eleHDsho.tif"), "HDeleshort", "HDeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "eleHDlon.tif"), "HDelelong", "HDelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "temHDsho.tif"), "HDtemshort", "HDtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "temHDlon.tif"), "HDtemlong", "HDtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "precHDsho.tif"),"HDprecshort", "HDprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "precHDlon.tif"),"HDpreclong", "HDpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "rugHDsho.tif"), "HDrugshort", "HDrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "rugHDlon.tif"), "HDruglong", "HDruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "strHDsho.tif"), "HDstrshort", "HDstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "strHDlon.tif"), "HDstrlong", "HDstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "habHDsho.tif"), "HDhabshort", "HDhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "habHDlon.tif"), "HDhablong", "HDhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "pdistHDsho.tif"), "HDpdistshort", "HDpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HD", "pdistHDlon.tif"), "HDpdistlong", "HDpdistlong_values", "Start_Distance")
+
+#### HG
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGsho126.tif"),
+                  "HGvulshort126", "HGvulshort126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGsho245.tif"),
+                  "HGvulshort245", "HGvulshort245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGsho585.tif"), 
+                  "HGvulshort585", "HGvulshort585_values", "Vulnerability")
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGlon126.tif"),
+                  "HGvullong126", "HGvullong126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGlon245.tif"),
+                  "HGvullong245", "HGvullong245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HG", "VulHGlon585.tif"),
+                  "HGvullong585", "HGvullong585_values", "Vulnerability")
+
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "eleHGsho.tif"), "HGeleshort", "HGeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "eleHGlon.tif"), "HGelelong", "HGelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "temHGsho.tif"), "HGtemshort", "HGtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "temHGlon.tif"), "HGtemlong", "HGtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "precHGsho.tif"),"HGprecshort", "HGprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "precHGlon.tif"),"HGpreclong", "HGpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "rugHGsho.tif"), "HGrugshort", "HGrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "rugHGlon.tif"), "HGruglong", "HGruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "strHGsho.tif"), "HGstrshort", "HGstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "strHGlon.tif"), "HGstrlong", "HGstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "habHGsho.tif"), "HGhabshort", "HGhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "habHGlon.tif"), "HGhablong", "HGhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "pdistHGsho.tif"), "HGpdistshort", "HGpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HG", "pdistHGlon.tif"), "HGpdistlong", "HGpdistlong_values", "Start_Distance")
+
+#### HW
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWsho126.tif"),
+                  "HWvulshort126", "HWvulshort126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWsho245.tif"),
+                  "HWvulshort245", "HWvulshort245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWsho585.tif"), 
+                  "HWvulshort585", "HWvulshort585_values", "Vulnerability")
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWlon126.tif"),
+                  "HWvullong126", "HWvullong126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWlon245.tif"),
+                  "HWvullong245", "HWvullong245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "HW", "VulHWlon585.tif"),
+                  "HWvullong585", "HWvullong585_values", "Vulnerability")
+
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "eleHWsho.tif"), "HWeleshort", "HWeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "eleHWlon.tif"), "HWelelong", "HWelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "temHWsho.tif"), "HWtemshort", "HWtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "temHWlon.tif"), "HWtemlong", "HWtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "precHWsho.tif"),"HWprecshort", "HWprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "precHWlon.tif"),"HWpreclong", "HWpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "rugHWsho.tif"), "HWrugshort", "HWrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "rugHWlon.tif"), "HWruglong", "HWruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "strHWsho.tif"), "HWstrshort", "HWstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "strHWlon.tif"), "HWstrlong", "HWstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "habHWsho.tif"), "HWhabshort", "HWhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "habHWlon.tif"), "HWhablong", "HWhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "pdistHWsho.tif"), "HWpdistshort", "HWpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "HW", "pdistHWlon.tif"), "HWpdistlong", "HWpdistlong_values", "Start_Distance")
+
+#### LD
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDsho126.tif"),
+                  "LDvulshort126", "LDvulshort126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDsho245.tif"),
+                  "LDvulshort245", "LDvulshort245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDsho585.tif"), 
+                  "LDvulshort585", "LDvulshort585_values", "Vulnerability")
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDlon126.tif"),
+                  "LDvullong126", "LDvullong126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDlon245.tif"),
+                  "LDvullong245", "LDvullong245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LD", "VulLDlon585.tif"),
+                  "LDvullong585", "LDvullong585_values", "Vulnerability")
+
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "eleLDsho.tif"), "LDeleshort", "LDeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "eleLDlon.tif"), "LDelelong", "LDelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "temLDsho.tif"), "LDtemshort", "LDtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "temLDlon.tif"), "LDtemlong", "LDtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "precLDsho.tif"),"LDprecshort", "LDprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "precLDlon.tif"),"LDpreclong", "LDpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "rugLDsho.tif"), "LDrugshort", "LDrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "rugLDlon.tif"), "LDruglong", "LDruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "strLDsho.tif"), "LDstrshort", "LDstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "strLDlon.tif"), "LDstrlong", "LDstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "habLDsho.tif"), "LDhabshort", "LDhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "habLDlon.tif"), "LDhablong", "LDhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "pdistLDsho.tif"), "LDpdistshort", "LDpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LD", "pdistLDlon.tif"), "LDpdistlong", "LDpdistlong_values", "Start_Distance")
+
+#### LG
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGsho126.tif"),
+                  "LGvulshort126", "LGvulshort126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGsho245.tif"),
+                  "LGvulshort245", "LGvulshort245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGsho585.tif"), 
+                  "LGvulshort585", "LGvulshort585_values", "Vulnerability")
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGlon126.tif"),
+                  "LGvullong126", "LGvullong126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGlon245.tif"),
+                  "LGvullong245", "LGvullong245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LG", "VulLGlon585.tif"),
+                  "LGvullong585", "LGvullong585_values", "Vulnerability")
+
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "eleLGsho.tif"), "LGeleshort", "LGeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "eleLGlon.tif"), "LGelelong", "LGelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "temLGsho.tif"), "LGtemshort", "LGtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "temLGlon.tif"), "LGtemlong", "LGtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "precLGsho.tif"),"LGprecshort", "LGprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "precLGlon.tif"),"LGpreclong", "LGpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "rugLGsho.tif"), "LGrugshort", "LGrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "rugLGlon.tif"), "LGruglong", "LGruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "strLGsho.tif"), "LGstrshort", "LGstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "strLGlon.tif"), "LGstrlong", "LGstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "habLGsho.tif"), "LGhabshort", "LGhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "habLGlon.tif"), "LGhablong", "LGhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "pdistLGsho.tif"), "LGpdistshort", "LGpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LG", "pdistLGlon.tif"), "LGpdistlong", "LGpdistlong_values", "Start_Distance")
+
+#### LW
+#response variable (vulnerability)
+#short dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWsho126.tif"),
+                  "LWvulshort126", "LWvulshort126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWsho245.tif"),
+                  "LWvulshort245", "LWvulshort245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWsho585.tif"), 
+                  "LWvulshort585", "LWvulshort585_values", "Vulnerability")
+#long dispersal type
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWlon126.tif"),
+                  "LWvullong126", "LWvullong126_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWlon245.tif"),
+                  "LWvullong245", "LWvullong245_values", "Vulnerability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "VulnData", "LW", "VulLWlon585.tif"),
+                  "LWvullong585", "LWvullong585_values", "Vulnerability")
+
+#upload the explanatory variables
+#elevation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "eleLWsho.tif"), "LWeleshort", "LWeleshort_values", "Elevation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "eleLWlon.tif"), "LWelelong", "LWelelong_values", "Elevation")
+
+#temperature
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "temLWsho.tif"), "LWtemshort", "LWtemshort_values", "Temperature")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "temLWlon.tif"), "LWtemlong", "LWtemlong_values", "Temperature")
+
+#precipitation
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "precLWsho.tif"),"LWprecshort", "LWprecshort_values", "Precipitation")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "precLWlon.tif"),"LWpreclong", "LWpreclong_values", "Precipitation")
+
+#Rugosity
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "rugLWsho.tif"), "LWrugshort", "LWrugshort_values", "Rugosity")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "rugLWlon.tif"), "LWruglong", "LWruglong_values", "Rugosity")
+
+#Strength
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "strLWsho.tif"), "LWstrshort", "LWstrshort_values", "Corridor_Strength")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "strLWlon.tif"), "LWstrlong", "LWstrlong_values", "Corridor_Strength")
+
+#Habitat Suitability
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "habLWsho.tif"), "LWhabshort", "LWhabshort_values", "Habitat_Suitability")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "habLWlon.tif"), "LWhablong", "LWhablong_values", "Habitat_Suitability")
+
+#Start Distance
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "pdistLWsho.tif"), "LWpdistshort", "LWpdistshort_values", "Start_Distance")
+upload.rastervals(here("data", "analysis_data", "VariableLayers", "ExplanatoryVariables", "LW", "pdistLWlon.tif"), "LWpdistlong", "LWpdistlong_values", "Start_Distance")
+
+```
+
+## Collate Data per Species
+
+Then we can start taking the top 25 corridor sample. Code annotation will be made fully only for the first instance.
+
+#### For HD:
+
+```{r Collate Data for HD}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+### HD SHORT
+
+#25 for HDshort 126
+names(HDvulshort126)[1] <- "HDvulshort126"
+
+HDvulshort126_stack <- c(HDvulshort126, 
+                HDeleshort, HDprecshort, HDtemshort, HDrugshort, HDstrshort, HDhabshort, HDpdistshort)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+HDshort_str25 <- HDvulshort126_stack[[6]] > quantile(HDstrshort_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+HDvulshort126_stack_top25 <- mask(HDvulshort126_stack, HDshort_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(HDvulshort126_stack_top25)
+
+#take a random sample from this extracted layer
+HDvulshort126_sample25 <- spatSample(HDvulshort126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+#apply appropriate names
+colnames(HDvulshort126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+#and bind the factor variables 
+HDvulshort126_sample25 <- cbind(Species = factor(rep("HDshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp126")),
+                         HDvulshort126_sample25)
+
+#25 for HDshort 245
+names(HDvulshort245)[1] <- "HDvulshort245"
+
+HDvulshort245_stack <- c(HDvulshort245, 
+                HDeleshort, HDprecshort, HDtemshort, HDrugshort, HDstrshort, HDhabshort, HDpdistshort)
+
+HDvulshort245_stack_top25 <- mask(HDvulshort245_stack, HDshort_str25, maskvalue = FALSE)
+
+plot(HDvulshort245_stack_top25)
+
+HDvulshort245_sample25 <- spatSample(HDvulshort245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HDvulshort245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HDvulshort245_sample25 <- cbind(Species = factor(rep("HDshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp245")),
+                         HDvulshort245_sample25)
+
+#25 for HDshort 585
+names(HDvulshort585)[1] <- "HDvulshort585"
+
+HDvulshort585_stack <- c(HDvulshort585, 
+                HDeleshort, HDprecshort, HDtemshort, HDrugshort, HDstrshort, HDhabshort, HDpdistshort)
+
+HDvulshort585_stack_top25 <- mask(HDvulshort585_stack, HDshort_str25, maskvalue = FALSE)
+
+HDvulshort585_sample25 <- spatSample(HDvulshort585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HDvulshort585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HDvulshort585_sample25 <- cbind(Species = factor(rep("HDshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp585")),
+                         HDvulshort585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+HDvulshort126_sample25$Permuted_CorridorStr <- sample(HDvulshort126_sample25$Corridor_Strength)
+HDvulshort245_sample25$Permuted_CorridorStr <- sample(HDvulshort245_sample25$Corridor_Strength)
+HDvulshort585_sample25$Permuted_CorridorStr <- sample(HDvulshort585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_HDshort <- rbind(HDvulshort126_sample25, HDvulshort245_sample25, HDvulshort585_sample25)
+sample25_HDshort
+
+### HD LONG
+
+#25 for HDlong 126
+names(HDvullong126)[1] <- "HDvullong126"
+
+HDvullong126_stack <- c(HDvullong126, 
+                HDelelong, HDpreclong, HDtemlong, HDruglong, HDstrlong, HDhablong, HDpdistlong)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+HDlong_str25 <- HDvullong126_stack[[6]] > quantile(HDstrlong_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+HDvullong126_stack_top25 <- mask(HDvullong126_stack, HDlong_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(HDvullong126_stack_top25)
+
+HDvullong126_sample25 <- spatSample(HDvullong126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HDvullong126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HDvullong126_sample25 <- cbind(Species = factor(rep("HDlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp126")),
+                         HDvullong126_sample25)
+
+#25 for HDlong 245
+names(HDvullong245)[1] <- "HDvullong245"
+
+HDvullong245_stack <- c(HDvullong245, 
+                HDelelong, HDpreclong, HDtemlong, HDruglong, HDstrlong, HDhablong, HDpdistlong)
+
+HDvullong245_stack_top25 <- mask(HDvullong245_stack, HDlong_str25, maskvalue = FALSE)
+
+plot(HDvullong245_stack_top25)
+
+HDvullong245_sample25 <- spatSample(HDvullong245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HDvullong245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HDvullong245_sample25 <- cbind(Species = factor(rep("HDlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp245")),
+                         HDvullong245_sample25)
+
+#25 for HDlong 585
+names(HDvullong585)[1] <- "HDvullong585"
+
+HDvullong585_stack <- c(HDvullong585, 
+                HDelelong, HDpreclong, HDtemlong, HDruglong, HDstrlong, HDhablong, HDpdistlong)
+
+HDvullong585_stack_top25 <- mask(HDvullong585_stack, HDlong_str25, maskvalue = FALSE)
+
+HDvullong585_sample25 <- spatSample(HDvullong585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HDvullong585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HDvullong585_sample25 <- cbind(Species = factor(rep("HDlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp585")),
+                         HDvullong585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+HDvullong126_sample25$Permuted_CorridorStr <- sample(HDvullong126_sample25$Corridor_Strength)
+HDvullong245_sample25$Permuted_CorridorStr <- sample(HDvullong245_sample25$Corridor_Strength)
+HDvullong585_sample25$Permuted_CorridorStr <- sample(HDvullong585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_HDlong <- rbind(HDvullong126_sample25, HDvullong245_sample25, HDvullong585_sample25)
+sample25_HDlong
+
+sample25HD <- rbind(sample25_HDshort, sample25_HDlong)
+sample25HD
+
+```
+
+#### For HG
+
+```{r Collate Data for HG}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+### HG SHORT
+
+#25 for HGshort 126
+names(HGvulshort126)[1] <- "HGvulshort126"
+
+HGvulshort126_stack <- c(HGvulshort126, 
+                HGeleshort, HGprecshort, HGtemshort, HGrugshort, HGstrshort, HGhabshort, HGpdistshort)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+HGshort_str25 <- HGvulshort126_stack[[6]] > quantile(HGstrshort_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+HGvulshort126_stack_top25 <- mask(HGvulshort126_stack, HGshort_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(HGvulshort126_stack_top25)
+
+HGvulshort126_sample25 <- spatSample(HGvulshort126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HGvulshort126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HGvulshort126_sample25 <- cbind(Species = factor(rep("HGshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp126")),
+                         HGvulshort126_sample25)
+
+#25 for HGshort 245
+names(HGvulshort245)[1] <- "HGvulshort245"
+
+HGvulshort245_stack <- c(HGvulshort245, 
+                HGeleshort, HGprecshort, HGtemshort, HGrugshort, HGstrshort, HGhabshort, HGpdistshort)
+
+HGvulshort245_stack_top25 <- mask(HGvulshort245_stack, HGshort_str25, maskvalue = FALSE)
+
+plot(HGvulshort245_stack_top25)
+
+HGvulshort245_sample25 <- spatSample(HGvulshort245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HGvulshort245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HGvulshort245_sample25 <- cbind(Species = factor(rep("HGshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp245")),
+                         HGvulshort245_sample25)
+
+#25 for HGshort 585
+names(HGvulshort585)[1] <- "HGvulshort585"
+
+HGvulshort585_stack <- c(HGvulshort585, 
+                HGeleshort, HGprecshort, HGtemshort, HGrugshort, HGstrshort, HGhabshort, HGpdistshort)
+
+HGvulshort585_stack_top25 <- mask(HGvulshort585_stack, HGshort_str25, maskvalue = FALSE)
+
+HGvulshort585_sample25 <- spatSample(HGvulshort585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HGvulshort585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HGvulshort585_sample25 <- cbind(Species = factor(rep("HGshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp585")),
+                         HGvulshort585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+HGvulshort126_sample25$Permuted_CorridorStr <- sample(HGvulshort126_sample25$Corridor_Strength)
+HGvulshort245_sample25$Permuted_CorridorStr <- sample(HGvulshort245_sample25$Corridor_Strength)
+HGvulshort585_sample25$Permuted_CorridorStr <- sample(HGvulshort585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_HGshort <- rbind(HGvulshort126_sample25, HGvulshort245_sample25, HGvulshort585_sample25)
+sample25_HGshort
+
+### HG LONG
+
+#25 for HGlong 126
+names(HGvullong126)[1] <- "HGvullong126"
+
+HGvullong126_stack <- c(HGvullong126, 
+                HGelelong, HGpreclong, HGtemlong, HGruglong, HGstrlong, HGhablong, HGpdistlong)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+HGlong_str25 <- HGvullong126_stack[[6]] > quantile(HGstrlong_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+HGvullong126_stack_top25 <- mask(HGvullong126_stack, HGlong_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(HGvullong126_stack_top25)
+
+HGvullong126_sample25 <- spatSample(HGvullong126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HGvullong126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HGvullong126_sample25 <- cbind(Species = factor(rep("HGlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp126")),
+                         HGvullong126_sample25)
+
+#25 for HGlong 245
+names(HGvullong245)[1] <- "HGvullong245"
+
+HGvullong245_stack <- c(HGvullong245, 
+                HGelelong, HGpreclong, HGtemlong, HGruglong, HGstrlong, HGhablong, HGpdistlong)
+
+HGvullong245_stack_top25 <- mask(HGvullong245_stack, HGlong_str25, maskvalue = FALSE)
+
+plot(HGvullong245_stack_top25)
+
+HGvullong245_sample25 <- spatSample(HGvullong245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HGvullong245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HGvullong245_sample25 <- cbind(Species = factor(rep("HGlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp245")),
+                         HGvullong245_sample25)
+
+#25 for HGlong 585
+names(HGvullong585)[1] <- "HGvullong585"
+
+HGvullong585_stack <- c(HGvullong585, 
+                HGelelong, HGpreclong, HGtemlong, HGruglong, HGstrlong, HGhablong, HGpdistlong)
+
+HGvullong585_stack_top25 <- mask(HGvullong585_stack, HGlong_str25, maskvalue = FALSE)
+
+HGvullong585_sample25 <- spatSample(HGvullong585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HGvullong585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HGvullong585_sample25 <- cbind(Species = factor(rep("HGlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp585")),
+                         HGvullong585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+HGvullong126_sample25$Permuted_CorridorStr <- sample(HGvullong126_sample25$Corridor_Strength)
+HGvullong245_sample25$Permuted_CorridorStr <- sample(HGvullong245_sample25$Corridor_Strength)
+HGvullong585_sample25$Permuted_CorridorStr <- sample(HGvullong585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_HGlong <- rbind(HGvullong126_sample25, HGvullong245_sample25, HGvullong585_sample25)
+sample25_HGlong
+
+sample25HG <- rbind(sample25_HGshort, sample25_HGlong)
+sample25HG
+
+```
+
+#### For HW:
+
+```{r Collate Data for HW}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+### HW SHORT
+
+#25 for HWshort 126
+names(HWvulshort126)[1] <- "HWvulshort126"
+
+HWvulshort126_stack <- c(HWvulshort126, 
+                HWeleshort, HWprecshort, HWtemshort, HWrugshort, HWstrshort, HWhabshort, HWpdistshort)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+HWshort_str25 <- HWvulshort126_stack[[6]] > quantile(HWstrshort_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+HWvulshort126_stack_top25 <- mask(HWvulshort126_stack, HWshort_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(HWvulshort126_stack_top25)
+
+HWvulshort126_sample25 <- spatSample(HWvulshort126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HWvulshort126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HWvulshort126_sample25 <- cbind(Species = factor(rep("HWshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp126")),
+                         HWvulshort126_sample25)
+
+#25 for HWshort 245
+names(HWvulshort245)[1] <- "HWvulshort245"
+
+HWvulshort245_stack <- c(HWvulshort245, 
+                HWeleshort, HWprecshort, HWtemshort, HWrugshort, HWstrshort, HWhabshort, HWpdistshort)
+
+HWvulshort245_stack_top25 <- mask(HWvulshort245_stack, HWshort_str25, maskvalue = FALSE)
+
+plot(HWvulshort245_stack_top25)
+
+HWvulshort245_sample25 <- spatSample(HWvulshort245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HWvulshort245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HWvulshort245_sample25 <- cbind(Species = factor(rep("HWshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp245")),
+                         HWvulshort245_sample25)
+
+#25 for HWshort 585
+names(HWvulshort585)[1] <- "HWvulshort585"
+
+HWvulshort585_stack <- c(HWvulshort585, 
+                HWeleshort, HWprecshort, HWtemshort, HWrugshort, HWstrshort, HWhabshort, HWpdistshort)
+
+HWvulshort585_stack_top25 <- mask(HWvulshort585_stack, HWshort_str25, maskvalue = FALSE)
+
+HWvulshort585_sample25 <- spatSample(HWvulshort585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HWvulshort585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HWvulshort585_sample25 <- cbind(Species = factor(rep("HWshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp585")),
+                         HWvulshort585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+HWvulshort126_sample25$Permuted_CorridorStr <- sample(HWvulshort126_sample25$Corridor_Strength)
+HWvulshort245_sample25$Permuted_CorridorStr <- sample(HWvulshort245_sample25$Corridor_Strength)
+HWvulshort585_sample25$Permuted_CorridorStr <- sample(HWvulshort585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_HWshort <- rbind(HWvulshort126_sample25, HWvulshort245_sample25, HWvulshort585_sample25)
+sample25_HWshort
+
+### HW LONG
+
+#25 for HWlong 126
+names(HWvullong126)[1] <- "HWvullong126"
+
+HWvullong126_stack <- c(HWvullong126, 
+                HWelelong, HWpreclong, HWtemlong, HWruglong, HWstrlong, HWhablong, HWpdistlong)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+HWlong_str25 <- HWvullong126_stack[[6]] > quantile(HWstrlong_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+HWvullong126_stack_top25 <- mask(HWvullong126_stack, HWlong_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(HWvullong126_stack_top25)
+
+HWvullong126_sample25 <- spatSample(HWvullong126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HWvullong126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HWvullong126_sample25 <- cbind(Species = factor(rep("HWlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp126")),
+                         HWvullong126_sample25)
+
+#25 for HWlong 245
+names(HWvullong245)[1] <- "HWvullong245"
+
+HWvullong245_stack <- c(HWvullong245, 
+                HWelelong, HWpreclong, HWtemlong, HWruglong, HWstrlong, HWhablong, HWpdistlong)
+
+HWvullong245_stack_top25 <- mask(HWvullong245_stack, HWlong_str25, maskvalue = FALSE)
+
+plot(HWvullong245_stack_top25)
+
+HWvullong245_sample25 <- spatSample(HWvullong245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HWvullong245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HWvullong245_sample25 <- cbind(Species = factor(rep("HWlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp245")),
+                         HWvullong245_sample25)
+
+#25 for HWlong 585
+names(HWvullong585)[1] <- "HWvullong585"
+
+HWvullong585_stack <- c(HWvullong585, 
+                HWelelong, HWpreclong, HWtemlong, HWruglong, HWstrlong, HWhablong, HWpdistlong)
+
+HWvullong585_stack_top25 <- mask(HWvullong585_stack, HWlong_str25, maskvalue = FALSE)
+
+HWvullong585_sample25 <- spatSample(HWvullong585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(HWvullong585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+HWvullong585_sample25 <- cbind(Species = factor(rep("HWlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp585")),
+                         HWvullong585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+HWvullong126_sample25$Permuted_CorridorStr <- sample(HWvullong126_sample25$Corridor_Strength)
+HWvullong245_sample25$Permuted_CorridorStr <- sample(HWvullong245_sample25$Corridor_Strength)
+HWvullong585_sample25$Permuted_CorridorStr <- sample(HWvullong585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_HWlong <- rbind(HWvullong126_sample25, HWvullong245_sample25, HWvullong585_sample25)
+sample25_HWlong
+
+sample25HW <- rbind(sample25_HWshort, sample25_HWlong)
+sample25HW
+
+```
+
+#### For LD:
+
+```{r Collate Data for LD}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+### LD SHORT
+
+#25 for LDshort 126
+names(LDvulshort126)[1] <- "LDvulshort126"
+
+LDvulshort126_stack <- c(LDvulshort126, 
+                LDeleshort, LDprecshort, LDtemshort, LDrugshort, LDstrshort, LDhabshort, LDpdistshort)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+LDshort_str25 <- LDvulshort126_stack[[6]] > quantile(LDstrshort_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+LDvulshort126_stack_top25 <- mask(LDvulshort126_stack, LDshort_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(LDvulshort126_stack_top25)
+
+LDvulshort126_sample25 <- spatSample(LDvulshort126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LDvulshort126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LDvulshort126_sample25 <- cbind(Species = factor(rep("LDshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp126")),
+                         LDvulshort126_sample25)
+
+#25 for LDshort 245
+names(LDvulshort245)[1] <- "LDvulshort245"
+
+LDvulshort245_stack <- c(LDvulshort245, 
+                LDeleshort, LDprecshort, LDtemshort, LDrugshort, LDstrshort, LDhabshort, LDpdistshort)
+
+LDvulshort245_stack_top25 <- mask(LDvulshort245_stack, LDshort_str25, maskvalue = FALSE)
+
+plot(LDvulshort245_stack_top25)
+
+LDvulshort245_sample25 <- spatSample(LDvulshort245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LDvulshort245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LDvulshort245_sample25 <- cbind(Species = factor(rep("LDshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp245")),
+                         LDvulshort245_sample25)
+
+#25 for LDshort 585
+names(LDvulshort585)[1] <- "LDvulshort585"
+
+LDvulshort585_stack <- c(LDvulshort585, 
+                LDeleshort, LDprecshort, LDtemshort, LDrugshort, LDstrshort, LDhabshort, LDpdistshort)
+
+LDvulshort585_stack_top25 <- mask(LDvulshort585_stack, LDshort_str25, maskvalue = FALSE)
+
+LDvulshort585_sample25 <- spatSample(LDvulshort585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LDvulshort585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LDvulshort585_sample25 <- cbind(Species = factor(rep("LDshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp585")),
+                         LDvulshort585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+LDvulshort126_sample25$Permuted_CorridorStr <- sample(LDvulshort126_sample25$Corridor_Strength)
+LDvulshort245_sample25$Permuted_CorridorStr <- sample(LDvulshort245_sample25$Corridor_Strength)
+LDvulshort585_sample25$Permuted_CorridorStr <- sample(LDvulshort585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_LDshort <- rbind(LDvulshort126_sample25, LDvulshort245_sample25, LDvulshort585_sample25)
+sample25_LDshort
+
+### LD LONG
+
+#25 for LDlong 126
+names(LDvullong126)[1] <- "LDvullong126"
+
+LDvullong126_stack <- c(LDvullong126, 
+                LDelelong, LDpreclong, LDtemlong, LDruglong, LDstrlong, LDhablong, LDpdistlong)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+LDlong_str25 <- LDvullong126_stack[[6]] > quantile(LDstrlong_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+LDvullong126_stack_top25 <- mask(LDvullong126_stack, LDlong_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(LDvullong126_stack_top25)
+
+LDvullong126_sample25 <- spatSample(LDvullong126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LDvullong126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LDvullong126_sample25 <- cbind(Species = factor(rep("LDlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp126")),
+                         LDvullong126_sample25)
+
+#25 for LDlong 245
+names(LDvullong245)[1] <- "LDvullong245"
+
+LDvullong245_stack <- c(LDvullong245, 
+                LDelelong, LDpreclong, LDtemlong, LDruglong, LDstrlong, LDhablong, LDpdistlong)
+
+LDvullong245_stack_top25 <- mask(LDvullong245_stack, LDlong_str25, maskvalue = FALSE)
+
+plot(LDvullong245_stack_top25)
+
+LDvullong245_sample25 <- spatSample(LDvullong245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LDvullong245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LDvullong245_sample25 <- cbind(Species = factor(rep("LDlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp245")),
+                         LDvullong245_sample25)
+
+#25 for LDlong 585
+names(LDvullong585)[1] <- "LDvullong585"
+
+LDvullong585_stack <- c(LDvullong585, 
+                LDelelong, LDpreclong, LDtemlong, LDruglong, LDstrlong, LDhablong, LDpdistlong)
+
+LDvullong585_stack_top25 <- mask(LDvullong585_stack, LDlong_str25, maskvalue = FALSE)
+
+LDvullong585_sample25 <- spatSample(LDvullong585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LDvullong585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LDvullong585_sample25 <- cbind(Species = factor(rep("LDlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp585")),
+                         LDvullong585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+LDvullong126_sample25$Permuted_CorridorStr <- sample(LDvullong126_sample25$Corridor_Strength)
+LDvullong245_sample25$Permuted_CorridorStr <- sample(LDvullong245_sample25$Corridor_Strength)
+LDvullong585_sample25$Permuted_CorridorStr <- sample(LDvullong585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_LDlong <- rbind(LDvullong126_sample25, LDvullong245_sample25, LDvullong585_sample25)
+sample25_LDlong
+
+sample25LD <- rbind(sample25_LDshort, sample25_LDlong)
+sample25LD
+
+```
+
+#### For LG:
+
+```{r Collate Data for LG}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+### LG SHORT
+
+#25 for LGshort 126
+names(LGvulshort126)[1] <- "LGvulshort126"
+
+LGvulshort126_stack <- c(LGvulshort126, 
+                LGeleshort, LGprecshort, LGtemshort, LGrugshort, LGstrshort, LGhabshort, LGpdistshort)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+LGshort_str25 <- LGvulshort126_stack[[6]] > quantile(LGstrshort_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+LGvulshort126_stack_top25 <- mask(LGvulshort126_stack, LGshort_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(LGvulshort126_stack_top25)
+
+LGvulshort126_sample25 <- spatSample(LGvulshort126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LGvulshort126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LGvulshort126_sample25 <- cbind(Species = factor(rep("LGshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp126")),
+                         LGvulshort126_sample25)
+
+#25 for LGshort 245
+names(LGvulshort245)[1] <- "LGvulshort245"
+
+LGvulshort245_stack <- c(LGvulshort245, 
+                LGeleshort, LGprecshort, LGtemshort, LGrugshort, LGstrshort, LGhabshort, LGpdistshort)
+
+LGvulshort245_stack_top25 <- mask(LGvulshort245_stack, LGshort_str25, maskvalue = FALSE)
+
+plot(LGvulshort245_stack_top25)
+
+LGvulshort245_sample25 <- spatSample(LGvulshort245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LGvulshort245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LGvulshort245_sample25 <- cbind(Species = factor(rep("LGshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp245")),
+                         LGvulshort245_sample25)
+
+#25 for LGshort 585
+names(LGvulshort585)[1] <- "LGvulshort585"
+
+LGvulshort585_stack <- c(LGvulshort585, 
+                LGeleshort, LGprecshort, LGtemshort, LGrugshort, LGstrshort, LGhabshort, LGpdistshort)
+
+LGvulshort585_stack_top25 <- mask(LGvulshort585_stack, LGshort_str25, maskvalue = FALSE)
+
+LGvulshort585_sample25 <- spatSample(LGvulshort585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LGvulshort585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LGvulshort585_sample25 <- cbind(Species = factor(rep("LGshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp585")),
+                         LGvulshort585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+LGvulshort126_sample25$Permuted_CorridorStr <- sample(LGvulshort126_sample25$Corridor_Strength)
+LGvulshort245_sample25$Permuted_CorridorStr <- sample(LGvulshort245_sample25$Corridor_Strength)
+LGvulshort585_sample25$Permuted_CorridorStr <- sample(LGvulshort585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_LGshort <- rbind(LGvulshort126_sample25, LGvulshort245_sample25, LGvulshort585_sample25)
+sample25_LGshort
+
+### LG LONG
+
+#25 for LGlong 126
+names(LGvullong126)[1] <- "LGvullong126"
+
+LGvullong126_stack <- c(LGvullong126, 
+                LGelelong, LGpreclong, LGtemlong, LGruglong, LGstrlong, LGhablong, LGpdistlong)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+LGlong_str25 <- LGvullong126_stack[[6]] > quantile(LGstrlong_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+LGvullong126_stack_top25 <- mask(LGvullong126_stack, LGlong_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(LGvullong126_stack_top25)
+
+LGvullong126_sample25 <- spatSample(LGvullong126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LGvullong126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LGvullong126_sample25 <- cbind(Species = factor(rep("LGlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp126")),
+                         LGvullong126_sample25)
+
+#25 for LGlong 245
+names(LGvullong245)[1] <- "LGvullong245"
+
+LGvullong245_stack <- c(LGvullong245, 
+                LGelelong, LGpreclong, LGtemlong, LGruglong, LGstrlong, LGhablong, LGpdistlong)
+
+LGvullong245_stack_top25 <- mask(LGvullong245_stack, LGlong_str25, maskvalue = FALSE)
+
+plot(LGvullong245_stack_top25)
+
+LGvullong245_sample25 <- spatSample(LGvullong245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LGvullong245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LGvullong245_sample25 <- cbind(Species = factor(rep("LGlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp245")),
+                         LGvullong245_sample25)
+
+#25 for LGlong 585
+names(LGvullong585)[1] <- "LGvullong585"
+
+LGvullong585_stack <- c(LGvullong585, 
+                LGelelong, LGpreclong, LGtemlong, LGruglong, LGstrlong, LGhablong, LGpdistlong)
+
+LGvullong585_stack_top25 <- mask(LGvullong585_stack, LGlong_str25, maskvalue = FALSE)
+
+LGvullong585_sample25 <- spatSample(LGvullong585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LGvullong585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LGvullong585_sample25 <- cbind(Species = factor(rep("LGlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp585")),
+                         LGvullong585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+LGvullong126_sample25$Permuted_CorridorStr <- sample(LGvullong126_sample25$Corridor_Strength)
+LGvullong245_sample25$Permuted_CorridorStr <- sample(LGvullong245_sample25$Corridor_Strength)
+LGvullong585_sample25$Permuted_CorridorStr <- sample(LGvullong585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_LGlong <- rbind(LGvullong126_sample25, LGvullong245_sample25, LGvullong585_sample25)
+sample25_LGlong
+
+sample25LG <- rbind(sample25_LGshort, sample25_LGlong)
+sample25LG
+
+```
+
+#### For LW:
+
+```{r Collate Data for LW}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+### LW SHORT
+
+#25 for LWshort 126
+names(LWvulshort126)[1] <- "LWvulshort126"
+
+LWvulshort126_stack <- c(LWvulshort126, 
+                LWeleshort, LWprecshort, LWtemshort, LWrugshort, LWstrshort, LWhabshort, LWpdistshort)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+LWshort_str25 <- LWvulshort126_stack[[6]] > quantile(LWstrshort_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+LWvulshort126_stack_top25 <- mask(LWvulshort126_stack, LWshort_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(LWvulshort126_stack_top25)
+
+LWvulshort126_sample25 <- spatSample(LWvulshort126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LWvulshort126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LWvulshort126_sample25 <- cbind(Species = factor(rep("LWshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp126")),
+                         LWvulshort126_sample25)
+
+#25 for LWshort 245
+names(LWvulshort245)[1] <- "LWvulshort245"
+
+LWvulshort245_stack <- c(LWvulshort245, 
+                LWeleshort, LWprecshort, LWtemshort, LWrugshort, LWstrshort, LWhabshort, LWpdistshort)
+
+LWvulshort245_stack_top25 <- mask(LWvulshort245_stack, LWshort_str25, maskvalue = FALSE)
+
+plot(LWvulshort245_stack_top25)
+
+LWvulshort245_sample25 <- spatSample(LWvulshort245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LWvulshort245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LWvulshort245_sample25 <- cbind(Species = factor(rep("LWshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp245")),
+                         LWvulshort245_sample25)
+
+#25 for LWshort 585
+names(LWvulshort585)[1] <- "LWvulshort585"
+
+LWvulshort585_stack <- c(LWvulshort585, 
+                LWeleshort, LWprecshort, LWtemshort, LWrugshort, LWstrshort, LWhabshort, LWpdistshort)
+
+LWvulshort585_stack_top25 <- mask(LWvulshort585_stack, LWshort_str25, maskvalue = FALSE)
+
+LWvulshort585_sample25 <- spatSample(LWvulshort585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LWvulshort585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LWvulshort585_sample25 <- cbind(Species = factor(rep("LWshort")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("short")),
+                         FutureScenario = factor(rep("ssp585")),
+                         LWvulshort585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+LWvulshort126_sample25$Permuted_CorridorStr <- sample(LWvulshort126_sample25$Corridor_Strength)
+LWvulshort245_sample25$Permuted_CorridorStr <- sample(LWvulshort245_sample25$Corridor_Strength)
+LWvulshort585_sample25$Permuted_CorridorStr <- sample(LWvulshort585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_LWshort <- rbind(LWvulshort126_sample25, LWvulshort245_sample25, LWvulshort585_sample25)
+sample25_LWshort
+
+### LW LONG
+
+#25 for LWlong 126
+names(LWvullong126)[1] <- "LWvullong126"
+
+LWvullong126_stack <- c(LWvullong126, 
+                LWelelong, LWpreclong, LWtemlong, LWruglong, LWstrlong, LWhablong, LWpdistlong)
+
+#To make the raster with only the top 25 strongest corridors:
+# Extract the strength band
+LWlong_str25 <- LWvullong126_stack[[6]] > quantile(LWstrlong_values, 0.75, na.rm = TRUE)
+
+#extract by mask, using the top25 mask on the raster stack of all the variabless
+LWvullong126_stack_top25 <- mask(LWvullong126_stack, LWlong_str25, maskvalue = FALSE)
+
+#Has extracted the 25 corridors
+plot(LWvullong126_stack_top25)
+
+LWvullong126_sample25 <- spatSample(LWvullong126_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LWvullong126_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LWvullong126_sample25 <- cbind(Species = factor(rep("LWlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp126")),
+                         LWvullong126_sample25)
+
+#25 for LWlong 245
+names(LWvullong245)[1] <- "LWvullong245"
+
+LWvullong245_stack <- c(LWvullong245, 
+                LWelelong, LWpreclong, LWtemlong, LWruglong, LWstrlong, LWhablong, LWpdistlong)
+
+LWvullong245_stack_top25 <- mask(LWvullong245_stack, LWlong_str25, maskvalue = FALSE)
+
+plot(LWvullong245_stack_top25)
+
+LWvullong245_sample25 <- spatSample(LWvullong245_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LWvullong245_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LWvullong245_sample25 <- cbind(Species = factor(rep("LWlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp245")),
+                         LWvullong245_sample25)
+
+#25 for LWlong 585
+names(LWvullong585)[1] <- "LWvullong585"
+
+LWvullong585_stack <- c(LWvullong585, 
+                LWelelong, LWpreclong, LWtemlong, LWruglong, LWstrlong, LWhablong, LWpdistlong)
+
+LWvullong585_stack_top25 <- mask(LWvullong585_stack, LWlong_str25, maskvalue = FALSE)
+
+LWvullong585_sample25 <- spatSample(LWvullong585_stack_top25, 
+                                method = 'random', 
+                                size = 1500, 
+                                as.raster= FALSE, cells = FALSE, na.rm= TRUE,
+                                xy = TRUE,
+                                replace = TRUE
+                                )
+
+colnames(LWvullong585_sample25) <- c('x', 'y', 'Vulnerability', 'Elevation',
+                                 'Precipitation', 'Temperature', 'Rugosity', 'Corridor_Strength', 'Habitat_Suitability', 'Start_Distance')
+
+LWvullong585_sample25 <- cbind(Species = factor(rep("LWlong")),
+                       SpecGen = factor(rep("Specialist")),
+                         AltitudeNiche = factor(rep("High")),
+                         WaterNiche = factor(rep("Dry")),
+                         Range = factor(rep("long")),
+                         FutureScenario = factor(rep("ssp585")),
+                         LWvullong585_sample25)
+
+#Add a permuted corridor strength column to show that the correlation drops out; FOR EACH
+LWvullong126_sample25$Permuted_CorridorStr <- sample(LWvullong126_sample25$Corridor_Strength)
+LWvullong245_sample25$Permuted_CorridorStr <- sample(LWvullong245_sample25$Corridor_Strength)
+LWvullong585_sample25$Permuted_CorridorStr <- sample(LWvullong585_sample25$Corridor_Strength)
+
+#COnstructed the DF, where each run has strength permuted 
+sample25_LWlong <- rbind(LWvullong126_sample25, LWvullong245_sample25, LWvullong585_sample25)
+sample25_LWlong
+
+sample25LW <- rbind(sample25_LWshort, sample25_LWlong)
+sample25LW
+
+```
+
+## Combine and Save
+
+```{r Combine and Save}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#make combined sample
+Sample25 <- rbind(sample25HD, sample25HG, sample25HW,
+                  sample25LD, sample25LG, sample25LW)
+
+#verify there are no NAs
+anyNA(Sample25)
+
+#and save it
+#write.csv(Sample25, "filename", row.names = FALSE)
+
+#ensure you can replicate our sample
+Sample25 <- read.csv(here("data", "analysis_data", "FullSample_25.csv"), header= TRUE)
+```

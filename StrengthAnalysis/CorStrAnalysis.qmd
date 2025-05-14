@@ -1,0 +1,2596 @@
+---
+title: "CorStrAnalysis4"
+format: html
+editor: visual
+---
+
+# Corridor-Strength Analysis
+
+## Introduction
+
+This document follows the analysis and results of the two part hurdle (logit-Continuous) modelling of the relationship between corridor strength and climate vulnerability
+
+### Understanding Our Question
+
+All data is spatial observations of the response Y (Vulnerability), and in each pixel the central explanatory variable X1 (Corridor Strength) has been extracted. Both the Y and X1 here are derived from generating corridors based on three confounding 'climate-topological input variables' (temp, precip, elev) which were used to define the habitat suitability (aka niche) of each of the 6 species.
+
+However, corridor strenght (X1) is directly derived from the current climate-topological input variables; while the vulnerability metric (Y) is an indirect output of the difference between current habitat suitability and future habitat suitability (aka how the climate input variables have changed; which in turn has hanged the resistance to ideal movement corridors).
+
+Although current higher and lower temperature areas may correlate with future climatic changes (e.g. the cold high elevation tend to get drier in precipitation, while lower elevation get wetter), we expect that current climate-topological input variables will not be able to explain all of the variation in vulnerability.
+
+The purpose of this analysis, then, is to show that corridor strength is a useful correlate of corridor vulnerability (we are not saying it is causal). If models predict that there is a significant relationship between corridor strength and vulnerability -and that it explains a good chunk of the variation- when the input climate-topological input variables are included; this infers that corridor strength represents an even better (or additional) way to estimate vulnerability to climate change of ecological networks.
+
+This correlation, when validated on a non-virtual species, could be used by practitioners to target and priorities certain corridors for resilience building (widening, planting to protect micro-climate, etc). It also would suggest a nifty 'two birds with one stone'; if these correlate, then directing resources to protect the most ecologically important corridors from climate change may simultaneously be targeting those that are most likely to persist.
+
+#### Why do we expect this outcome, based on prior ecological theory?
+
+Corridor strength (in this case) is solely a reflection of the habitat area that is most suitable for the species' niche. This is because we used a simple inversion of a virtual habitat suitability map to produce the current resistance raster, as well as used the habitat suitability map to probabilistic place populations that serve as start and end points. This means that, in our virtual case, the corridor locaiton and strength (which is a product of these two inputs; landscape resistance and population core locations) is a direct output of the niche of each species. This reflects natural conditions; where species' do reside and disperse along landscape suitability for their niche (though with much more variability).
+
+Therefore, we can consider corridor strength in this study as, at least in part, a measure of how suitable that pixel of land is for the given species' predefined niche. The only difference it has from the habitat suitability raster is that it accounts for the location of all populations in relation to each other, and least cost paths between them (which is an algorithm that is accounting for the spatial layout of suitability).
+
+This second point means that corridor strength will not be a perfect reflection of niche suitability: a pixel that is highly suitable for dispersal but is flanked by unsuitable resistance will not be used by the path algorithm. So corridor strength is a partial reflection of the landscapes suitability to the niche - as it also takes spatial layout into account.
+
+Vulnerability is a measure of how the locations and strength of corridors are displaced with climate change. So, this then is a very indirect measure of how much each pixel of land becomes more or less suitable to the species' niche as a result of climate change. It is indirect because it also includes the current and future least cost path-finding; so similarly will not follow 'difference in suitability' directly, as it takes spatial layout into account.
+
+So Corridor Strength is only based on the current niche suitability, and Vulnerability is a measure of the change in niche suitability across the landscape.
+
+With this in mind, a correlation between corridor strength and vulnerability would essentially be to say that the corridors that are most suitable to the niche of the species are the least likely to become unsuitable. This makes ecological sense as these corridors of high suitability are less liable to being pushed out of suitable niche space; as they are closer to the center of the ideal fundamental niche. They would need to be pushed further (have more dramatic climatic changes) than corridors ont the edge of niche space to become un-preferred. Another way to view this is, if a strong and weak corridor both reduce their climatic suitability by the same amount; the strong corridor (which was closer to the ideal niche) is still more likely to remain usable. This ecological inference suggests that strong corridors should be more resilient to climate change.
+
+### Understanding Our Data Structure
+
+**6 'Niches'**: Our data consists of 6 niches (/species); High elevation (lower temperature) rain specialist, dry specialist, and generalist (which can broadly find both suitable). And then the same for low elevation (and higher temperature). This means 6 current (and future) habitat suitability maps.
+
+**12 'Species'**: Within each 'species' we specified a short and long range dispersal threshold. The subspecies share the exact same habitat suitability raster. However, in least cost path modelling, will take different routes based on their relative movement ability. This means 12 current corridor maps.
+
+**3 Future scenarios (Scenario:subspecies = 36)**: each subspecies then had its future corridors mapped for 3 climate scenarios (ssp126, 245, 585). This means that there are 36 future corridor maps.
+
+6 habitat suitability maps –x2-\> 12 current network maps –x3-\> 36 future network maps.
+
+Each niche can be considered a site expected to have real differences, each species (range short or far) and future scenario within each niche can be considered like a block (we are not interested in their effects in this analysis, but want to account for them). Previous analysis has shown that these 'blocks' have little influence on the outcome.
+
+We included the 3 future scenarios so that we might be able to investiage a difference in vulnerability between scenarios; however exploratory analysis suggests that our data will not be able to detect this. As such, these can be considered a random effect in our analysis (we are interested to see that they do not produce too much variation, but want to include them in the model).
+
+The 12 subspecies and 6 niches aims to capture a more realistic breadth of species, therefore making our conclusions more generaliseable. Exploratory analysis also suggests that this is a considerable source of variation (the relationship between strength and vulnerability varies by subspecies). So this should also be included in the analysis as a random effect.
+
+Because the corridor strength and vulnerability are both partially linked to habitat suitability (which is a direct product of the temp, prec and elev), the climate-topological inputs will be included in model building. This will allow us to conclude if the corridor strength has a predictive relationship with vulnerability that is not just a one-to-one copy of habitat suitability.
+
+## Preparing Data for Hurdle Modelling
+
+The data is highly right skewed, spatially auto-correlated (SAC), and zero inflated. In order to conduct this analysis, we can take care of the right skew by using GLM methods. The spatial autocorrelation can eventually be incorporated into the model using a 2D planar term, as well as reduced by taking a small number of pixels as sample from each of the 36 scenario:subspecies. We also want to samplethe same number each time, so that the data structure is balanced at each level. Finally, we will account for zero inflation by using a hurdle method; where the probability of zero's (as it scales with strength) is modeled in a logistic GLM, and then the strength-vulnerability continuous relationship modeled separately.
+
+Thus we need two data frames. One where the Zero/Non-Zero data is extracted for each observation (along with explanatory variables), and one where the zeros are removed and the absolute value of vulnerability is extracted (with variables).
+
+Load and view the 'full' data.
+
+```{r Install Required Packages}
+#| echo: false  
+#| warning: false 
+#| message: false 
+#| results: false 
+
+#isntall packages if needed
+
+#install.packages('dplyr')
+#install.packages('ggplot2')
+#install.packages('arm')
+#install.packages('mgcv')
+#install.packages('spaMM')
+#install.packages('DHARMa')
+#install.packages('sf')
+#install.packages('spdep')
+#install.packages('gstat')
+#install.packages('pwrss')
+#install.packages('here')
+
+#load required packages
+library(dplyr)
+library(ggplot2)
+library(arm)
+library(mgcv)
+library(spaMM)
+library(DHARMa)
+library(sf)
+library(spdep)
+library(gstat)
+library(pwrss)
+library(here)
+```
+
+```{r Explore the data}
+#| echo: false  
+#| warning: false 
+#| message: false  
+
+#library(dplyr)
+#library(here)
+
+#Load the full dataset
+full_df <- read.csv(here("data", "analysis_data", "FullSample_25.csv"), header= TRUE)
+
+#add a Niche col
+full_df <- full_df %>%
+  mutate(Niche = case_when(
+    Species %in% c("HDlong", "HDshort") ~ "HD", 
+    Species %in% c("HGlong", "HGshort") ~ "HG",
+    Species %in% c("HWlong", "HWshort") ~ "HW",
+    Species %in% c("LDlong", "LDshort") ~ "LD", 
+    Species %in% c("LGlong", "LGshort") ~ "LG",
+    Species %in% c("LWlong", "LWshort") ~ "LW",
+  ))
+
+#need to correct the two niche columns:
+full_df <- full_df %>%
+  mutate(WaterNiche = case_when(
+    Niche %in% c("HD", "LD") ~ "Dry", 
+    Niche %in% c("HG", "LG") ~ "Generalist",
+    Niche %in% c("HW", "LW") ~ "Wet",
+  ))
+
+full_df <- full_df %>%
+  mutate(AltitudeNiche = case_when(
+    Niche %in% c("HD", "HG", "HW") ~ "High", 
+    Niche %in% c("LD", "LG", "LW") ~ "Low",
+  ))
+
+#explore the variables
+head(full_df)
+```
+
+#### 1) Power Analysis
+
+In order to do a preliminary power analysis, we need to fit a very simplified GLM just to get a value of the continuous analysis slope (effect size) that is the core part of this hypothesis (part two). I have specified that corridor strength will be on the log scale, and then used a log link fucntion so that the GLM relates to to vulnerability with log scale predictions.
+
+```{r Remove Zeros and observe slope}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#filter zeros
+full_df_n0 <- full_df[full_df$Vulnerability != 0, ]
+
+#create dimple model
+glm_pow <- glm(Vulnerability ~ log(Corridor_Strength), 
+                 family = gaussian(link = "log"), data = full_df_n0)
+
+#view
+summary(glm_pow)
+```
+
+We are looking for an effect size of -0.163 (on the log-log scale of both axis).
+
+I have also displayed the slope here. I have left the zero inflation in so that you can see the kind of data we are working with, and why we need a hurdle model approach:
+
+```{r Plot this slope}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#library(ggplot2)
+
+#exploratory plot. Use logp1 for vulnerability as the value can be 0.
+ggplot(full_df, 
+       aes(x = log(Corridor_Strength), y = log1p(Vulnerability))) +
+  geom_point(size= 0.75, alpha= 0.06, data = ~ group_by(.x, Species)
+             %>% sample_frac(0.05)) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; all",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+```
+
+We can calculate sample size from this and previous model outputs, the effect size is quite large.
+
+```{r Power Analysis}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#library(pwrss)
+
+#this function returns the sample size needed for a t-test of slope in regression analysis
+#we expect the number of predictors (k) in the full model to be 5 + a spatial term
+#we expect the deviance explained (r2) to shift between 50-75% from previous analysis (it is high largely because of the spatial term)
+#we use the standards for type I and type II error
+pwrss.t.reg(beta1 = 0.163, 
+            k = 6, 
+            r2 = 0.5, 
+            power = .80, alpha = 0.05, alternative = "not equal")
+```
+
+As we are theoretically interested in the relationship for every factor level (down to the 36 species:scenarios) we should aim for a minimum of 150 per species:scenarios. I will use n=200. This will give an overall sample of 7,200 observations.
+
+#### 2) Balanced Sub-sampling
+
+In the data file, I have also saved each species/niche separately. The full data sets took 1,200 sample points from each subspecies:scenario (36), this is much larger than necessary and oversampling on a limited area will increase the influence of spatial autocorrelation. Secondly, because most connectivity studies work with the top 25 or top 10 corriodor strength (beyond this is considered ecologically irrelevant), I have also prepared the same data (full and split by species) that has been filtered for these top 25/10 current corridors.
+
+We will work with the top-25 data stes for now; 1200 sample observations is even more overkill as this has much reduced area. So we are going to sample each subspecies:scenario to take only 200. According to power analysis on the relationship of interest, this should be far and away enough to detect significance in the pooled data (and even in the dis-aggregated subspecies:scenarios).
+
+Use this code to generate a new sample, if you want to reproduce the results:
+
+```{r Code to make a new Master Sample}
+#| echo: false  
+#| warning: false 
+#| message: false 
+#| results: false 
+
+#This code uses stratified sampling to ensure baalnce; 200 observations are taken randomly from each future scenario in each subspecies (fully balanced). (this was later found to be a good size necessary for doing random effects by speices)
+newsample <- full_df %>% group_by(Species, FutureScenario) %>% sample_n(200)
+
+#We should also define that the factros are in fact factors, not character strings:
+newsample$Species <- factor(newsample$Species)
+newsample$SpecGen <- factor(newsample$SpecGen)
+newsample$AltitudeNiche <- factor(newsample$AltitudeNiche)
+newsample$WaterNiche <- factor(newsample$WaterNiche)
+newsample$Range <- factor(newsample$Range)
+newsample$FutureScenario <- factor(newsample$FutureScenario)
+newsample$Niche <- factor(newsample$Niche)
+
+#We should also add a log corridor strength for later ease...
+newsample$logCrStr <- log(newsample$Corridor_Strength)
+# and for the permuted, in case we use it...
+newsample$logPermutedCrStr <- log(newsample$Permuted_CorridorStr)
+
+# I am also going to add add a jitter
+newsample$jittered_x <- newsample$x + 
+  rnorm(nrow(newsample), 0, 1e-5)
+newsample$jittered_y <- newsample$y + 
+  rnorm(nrow(newsample), 0, 1e-5)
+
+#You can view that this has all worked:
+head(newsample)
+```
+
+#### 3) Spatial Visualization
+
+We can view the nature of spatial data best on a map:
+
+```{r View your sample}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#The best way to view spatial data is spatially, so plot:
+ggplot(newsample, aes(x = x, y = y, colour= Niche)) +
+  geom_point(size= 0.1, alpha= 0.5, 
+             data = ~ group_by(.x, Range, FutureScenario) %>% sample_frac(0.7)) + 
+  theme_minimal() +
+  labs(title = 'Spatial Distribution of Sample (top 25)', 
+       x = 'Longitude', y= 'Lattitude')
+```
+
+We can also plot to see the spatial distibution of the response variable:
+
+```{r View the response}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#repeat map visualisation but with vulnerability mapped
+ggplot(newsample, aes(x = x, y = y, colour= log(Vulnerability))) +
+  geom_point(size= 0.1, alpha= 0.5, 
+             data = ~ group_by(.x, Range, FutureScenario) %>% sample_frac(0.7)) + 
+  theme_minimal() +
+  labs(title = 'Spatial Distribution of Sample (top 25)', 
+       x = 'Longitude', y= 'Lattitude')
+```
+
+#### 5) Replication sample
+
+This code can be used to save a sample and reload the one I used for replication.
+
+```{r Replicate our Master Sample}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#save your own if desired
+#write.csv(newsample, "", row.names = FALSE)
+
+#or load my sample for replciaiton
+sample_n200_t25 <- read.csv(here("data", "analysis_data", "ReplicateSample_n200.csv"), header= TRUE)
+
+#need to reset the factors each time!
+sample_n200_t25$Species <- factor(sample_n200_t25$Species)
+sample_n200_t25$SpecGen <- factor(sample_n200_t25$SpecGen)
+sample_n200_t25$AltitudeNiche <- factor(sample_n200_t25$AltitudeNiche)
+sample_n200_t25$WaterNiche <- factor(sample_n200_t25$WaterNiche)
+sample_n200_t25$Range <- factor(sample_n200_t25$Range)
+sample_n200_t25$FutureScenario <- factor(sample_n200_t25$FutureScenario)
+sample_n200_t25$Niche <- factor(sample_n200_t25$Niche)
+
+head(sample_n200_t25)
+```
+
+## Part One; Zero-NonZero Binary Modelling of 'Maximal Resilience'
+
+#### 1) Creating the Binary Data
+
+For the logit modelling, we need a data frame where each observation is either zero or not zero. Confusingly; a '1' (success) in this case is what we are interested in: will represent that his corridor pixel lies inside of the top 3.125% strongest future corridors (the strongest band). It can be understood to mean; 'maximum climate resilience the metric can resolve'. While a failure (0) is given to any vulnerability metric \>0; "some form of corridor vulnerability detected, however small'.
+
+```{r Add binary success/failure response variable}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#add a column to the sample for zero/nonzer0 (aka1)
+sample_n200_t25 <- sample_n200_t25 %>%
+  mutate(Max_resilience = ifelse(Vulnerability == 0, 1, 0))
+
+#view
+head(sample_n200_t25[, 19:23])
+```
+
+#### 2) Exploration
+
+We can visualize this data with binary plots:
+
+```{r View the binary data}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+#Here I use jitter and transparency to better see the spread of the data.
+ggplot(sample_n200_t25, aes(x= Corridor_Strength, y= Max_resilience)) +
+  geom_jitter(width = 0.01, height = 0.03, size= 0.75, alpha= 0.075) +
+  labs(x="Corridor Strength", y= "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks=c(0, 1), 
+                     labels=c("Vulnerable", "No Detectable Vulnerability"))
+```
+
+We can see that the majority of observations are at the low end of corridor strength with heavy right skew, so we may want to analyse it with log corridor strength.
+
+```{r, warning =FALSE}
+#We can include the mean corridor strength of both the 1 and 0 groups to help visualise:
+med_logCrStr_0 <- median(sample_n200_t25$logCrStr[sample_n200_t25$Max_resilience == 0])
+med_logCrStr_1 <- median(sample_n200_t25$logCrStr[sample_n200_t25$Max_resilience == 1])
+
+#Plot with dashed lines for the mean
+ggplot(sample_n200_t25, aes(x= logCrStr, y= Max_resilience)) +
+  geom_jitter(width = 0.01, height = 0.03, size= 0.75, alpha= 0.08,
+              aes(color = factor(Max_resilience))) + 
+  geom_vline(xintercept = med_logCrStr_0, color = "red", linetype = "dashed") + 
+  geom_vline(xintercept = med_logCrStr_1, color = "blue", linetype = "dashed") +
+  geom_point(aes(x = med_logCrStr_0, y = 0), color = "red", size = 3) +
+  geom_point(aes(x = med_logCrStr_1, y = 1), color = "blue", size = 3) +
+  labs(x="Log Corridor Strength", y= "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks=c(0, 1), 
+                     labels=c("Vulnerable", "No Detectable Vulnerability")) +
+  theme(legend.position = "none")
+
+#show the medians
+med_logCrStr_0
+med_logCrStr_1
+```
+
+We can see that stronger corridors may indeed have a greater proportion of pixels with no detectable vulnerability (maximum resilience, aka metric=0), although it is very slight. It is a small difference on the log scale, but may be considerable on the normal scale. Plus we have a ton of data, so a model may be able to detect a relationship here. So, lets explore it anyway.
+
+#### 3) GAM1: MaxResilience-CorridorStrength
+
+Start with a simple one term model:
+
+```{r}
+#library(mgcv)
+
+#Build a simple logit-link GAM. We are using a GAM as this will later be necesary to account for spatial autocorrelation (which glm packages cannot do logit and SAC simultaneosuly): 
+logit_gam1 <- gam(Max_resilience ~ logCrStr, 
+                       family = binomial(link = "logit"), 
+                       data = sample_n200_t25)
+#Interrogate it
+summary(logit_gam1)
+coef(logit_gam1)
+
+#save the model
+#saveRDS(logit_gam1, "~/ConnectivityData_master/Data/SavedModels2/logit_gam1.rds")
+```
+
+The slope of 0.08 suggest a very slight positive relationship: stronger corridors have a greater probability of being in the most climate resilient set (undetectable vulnerability). This is significant. This means that for each magnitude increase in current corridor strength, the porbability of having minimum vulnerability increases by 8%.
+
+We can display this relationship on the plot. The smoother represents the probability of getting 0 Vulnerability increasing with corridor strength:
+
+```{r}
+GAM1predicted_resilience <- predict(logit_gam1, type = "response")
+
+ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
+  geom_jitter(width = 0.01, height = 0.03, size = 0.75, alpha = 0.08,
+              aes(color = factor(Max_resilience))) + 
+  geom_line(aes(y = GAM1predicted_resilience), color = "black") +  
+  geom_vline(xintercept = med_logCrStr_0, color = "red", linetype = "dashed") + 
+  geom_vline(xintercept = med_logCrStr_1, color = "blue", linetype = "dashed") +
+  geom_point(aes(x = med_logCrStr_0, y = 0), color = "red", size = 3) +
+  geom_point(aes(x = med_logCrStr_1, y = 1), color = "blue", size = 3) +
+  labs(x = "Log Corridor Strength", y = "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks = c(0, 1), 
+                     labels = c("Vulnerable", "No Detectable Vulnerability")) +
+  theme(legend.position = "none")
+```
+
+#### 4) GAM2: MaxResilience-CorridorStrength + RE(Species)
+
+We should see if this relationship considerably varies between our 'blocks' of subspecies and scenario:
+
+```{r}
+#here the smoothers do not show GAM, but GLM. This is for ease of coding; in general the relationships (on the braod sesne we are looking at in this overview) will remain the same in both modelling methods, so this still cna be used to view the effect of species groups:
+
+#set glm
+logit_glm1 <- glm(Max_resilience ~ logCrStr, 
+                  family = binomial(link = "logit"), 
+                  data = sample_n200_t25)
+
+#Display
+qplot(data = logit_glm1, x = logCrStr, y = Max_resilience) +
+  geom_smooth(formula = y ~ x, method = "glm", 
+              method.args = list(family = "binomial")) +
+  geom_jitter(width = 0.01, height = 0.03, size= 0.75, alpha= 0.08) + 
+  labs(x="Log Corridor Strength", y= "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks=c(0, 1), 
+                     labels=c("Vulnerable", "No Detectable Vulnerability")) +
+  theme(legend.position = "none") +
+  facet_wrap(. ~ sample_n200_t25$Species)
+```
+
+We can see that some of the un-accounted for variation may be coming from different subspecies. In LW, the relationship may even be flipped! So we should include this in our model.
+
+```{r}
+#add random effect of species
+logit_gam2 <- gam(Max_resilience ~ logCrStr + s(Species, bs="re"), 
+                  family = binomial(link = "logit"), data = sample_n200_t25)
+
+summary(logit_gam2)
+
+#compare the AIC
+AIC(logit_gam1)
+AIC(logit_gam2)
+
+#save the model
+#saveRDS(logit_gam2, "~/ConnectivityData_master/Data/SavedModels2/logit_gam2.rds")
+```
+
+This actually increases the significance and the estimate effect of the relationship!
+
+We can plot this model too, the same way:
+
+```{r}
+GAM2predicted_resilience <- predict(logit_gam2, type = "response")
+
+ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
+  geom_jitter(width = 0.01, height = 0.03, size = 0.75, alpha = 0.08,
+              aes(color = factor(Max_resilience))) + 
+  geom_smooth(aes(y = GAM2predicted_resilience), color = "black", size = 1) +  
+  geom_vline(xintercept = med_logCrStr_0, color = "red", linetype = "dashed") + 
+  geom_vline(xintercept = med_logCrStr_1, color = "blue", linetype = "dashed") +
+  geom_point(aes(x = med_logCrStr_0, y = 0), color = "red", size = 3) +
+  geom_point(aes(x = med_logCrStr_1, y = 1), color = "blue", size = 3) +
+  labs(x = "Log Corridor Strength", y = "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks = c(0, 1), 
+                     labels = c("Vulnerable", "No Detectable Vulnerability")) +
+  theme(legend.position = "none")
+```
+
+We can see from the coefficients that the random effect does not change the direction of the relationship (all are \~0.2-0.4). Even when this species variation is accounted for, the overall relationship still has a significant slope (CIs do not cross 0). The AIC is lower, so also suggests this is the better model, but is still a very poor predictor (3.3% of the variation is explained).
+
+#### 5) GAM3: MaxResilience-CorridorStrength + RE(Niche)
+
+As the long and short range species generally seem to conform, we should see if Niche makes for a better model.
+
+```{r}
+#try niche level random effect instead of species
+logit_gam3 <- gam(Max_resilience ~ logCrStr + s(Niche, bs="re"), 
+                  family = binomial(link = "logit"), data = sample_n200_t25)
+
+summary(logit_gam3)
+
+#compare the AIC
+AIC(logit_gam1)
+AIC(logit_gam2)
+AIC(logit_gam3)
+
+#save the model
+#saveRDS(logit_gam3, "~/ConnectivityData_master/Data/SavedModels2/logit_gam3.rds")
+```
+
+This model is worse, according to AIC. But better according to BIC. In general, AIC is a better selection criterion when trying to make a predictive model (looking to make future predictions), and BIC for explanatory (looking for causality to understand 'why?'). Our question here is fundamentally predictive; we are not interested in causality. So we should use AIC. As a result, we will continue to use Species as our grouping random factor; retaining high complexity and predictive power.
+
+#### 6) GAM4: MaxResilience-CorridorStrength + RE(Species) + HabitatSuitability + RE(FutureScenario)
+
+However, this model should also take into account some other terms. Habitat suitability may better explain this relationship (as corridors are an indirect product of it). Distance from start/end locaitons is expected to be a serious co-variant, because the pixels near a point locaiton are garunteed to have higher corridor strength (guaranteed traffic) and lower vulnerability (because even the future corridors are plotted to always pass through these). If we include it in the model, we can show that corridor strength still has the ecological relationship we hypothesise - independent of these potential co-variants. These will be treated as fixed effects.
+
+Finally, we will also add future scenario as a random factor, to see if this is a term that should be taken forward.
+
+```{r}
+#include future scenario as a random effect
+logit_gam4 <- gam(Max_resilience ~ logCrStr + Habitat_Suitability 
+                  + Start_Distance +
+                    s(Species, bs="re") + 
+                    s(FutureScenario, bs="re"), 
+                       family = binomial(link = "logit"), 
+                       data = sample_n200_t25)
+
+summary(logit_gam4)
+
+AIC(logit_gam1)
+AIC(logit_gam2)
+AIC(logit_gam3) 
+AIC(logit_gam4) 
+
+#save the model
+#saveRDS(logit_gam4, "~/ConnectivityData_master/Data/SavedModels2/logit_gam4.rds")
+```
+
+We can see that the AIC is improved, but that this is not due to Habitat Suitability, or the Future Scenario random factor, both of which have no significant relationship with Vulnerability. The lack of effect of future scenario was a surprise, and indicates that the directions of corridor shifts may be quite consistant between scenarios, and only vary in intensity slightly.
+
+The habitat suitability is the main component that the network maps are based on, and therefore the vulnerability metric is derived from it. Corridor strength is derived from habitat suitability, but integrates dispersal. It being a better predictor therefore suggests that it is a stronger proxy for vulnerability; precisely because it accounts for dispersal patterns and geography (on top of the niche) whereas habitat suitability is niche-only.
+
+The better AIC is likely driven by the distance from points, which we expected to have a strong effect due to the limits of our simulation - it should be included along with habitat suitability as potential confounding variables.
+
+#### 7) Exploring Spatial Autocorrelation (SAC)
+
+We should also include spatial autocorrelation. First we can use Morans I to verify that it is present.
+
+```{r}
+#library(spdep)
+
+#Include a spatial autocorrelation term
+# Create a matrix of coordinates
+Coords <- cbind(sample_n200_t25$x, sample_n200_t25$y)
+
+#Identify the minimimum threshold distance that will give every observation at least 1 neighbour
+#LONG DONT RERUN ONCE DONE ALREADY
+dist_matrix <- as.matrix(dist(Coords)) 
+
+#plot to visualise the distance matrix (how isolated each observation is)
+hist(dist_matrix, breaks = 50, main = "Distribution of Pairwise Distances", xlab = "Distance")
+
+#save the minimum distance where each has 1 neighbour
+min_distance <- max(apply(dist_matrix, 1, function(row) min(row[row > 0]))) 
+# = 33456.99
+
+# Define neighbors based on distance (e.g., within a certain distance threshold)
+nb <- dnearneigh(Coords, d1 = 0, d2 = min_distance)  # Adjust d2 to your desired distance threshold
+
+# Convert neighbors list to a spatial weights matrix
+lw <- nb2listw(nb)
+
+# Calculate Local Moran's I
+localmoran1 <- localmoran(sample_n200_t25$Vulnerability, lw)
+head(localmoran1)
+
+#Interpretation Guide:
+#Ii is the moran statistic, a measure of how spatially dependent an observation is on its neighbors 
+#E.Ii is the expected Ii if there was no spatial autocorrelation 
+#Z.Ii is the Ii but standardised around 0 ( mean) so  it can be used to see significance
+#Pr() is the probability of observing that Ii under the null (no autocorrealtion), if it is >0.05, we can conclude that there is real spatial autocorrelation present
+
+# Add results to the dataframe
+sample_n200_t25$local_moran_I <- localmoran1[, "Ii"]
+sample_n200_t25$local_moran_p <- localmoran1[, "Pr(z != E(Ii))"]
+
+# Identify significant clusters (e.g., p < 0.05)
+sample_n200_t25$significant_cluster <- sample_n200_t25$local_moran_p < 0.05
+
+#Label the Moran type (over or under spaitally depednent; or not sign)
+sample_n200_t25$Moran_type <- ifelse(sample_n200_t25$local_moran_p > 0.05,
+                                     'Insignficant',
+                                     ifelse(sample_n200_t25$local_moran_I > 0,
+                                            'clustering', 'Overdispersing'))
+
+#view
+head(sample_n200_t25[c(21, 22, 23, 24, 25, 26, 27)])
+```
+
+We can view SAC spatially to get an idea:
+
+```{r}
+#Plot the classes of Moran I
+ggplot(sample_n200_t25, aes(x = x, y = y, colour= Moran_type)) +
+  geom_point(size= 0.7, alpha= 0.5, 
+             data = ~ group_by(.x, Species, FutureScenario) %>% sample_frac(0.5)) +
+  theme_minimal()
+```
+
+We can get a value of global Moran's I for this map.
+
+```{r}
+#library(DHARMa)
+
+#get the global Moran I using Dharma
+logit_gam4_DharmaSim <- simulateResiduals(fittedModel = logit_gam4, plot = F)
+
+#return Moran
+testSpatialAutocorrelation(logit_gam4_DharmaSim, 
+                           x= sample_n200_t25$jittered_x, 
+                           y= sample_n200_t25$jittered_y,
+                           plot= F)
+```
+
+The moran's I indicates strong spatial autocorrelation in residuals; on average, neighboring observations have more similar residuals than would be expected by chance (p\<0.05).
+
+#### 8) GAM5: MaxResilience-CorridorStrength + covairates + RE(Species) + SAC
+
+So lets include a SAC term in the model, and see if this accounts for all of the variation; nullifying the significance of corridor strength and a correlate of vulnerability.
+
+```{r}
+#add SAC term
+logit_gam5 <- gam(Max_resilience ~ logCrStr 
+                  + Habitat_Suitability + Start_Distance
+                  + s(x,y)
+                  + s(Species,bs="re"), 
+                       family = binomial(link = "logit"), 
+                       data = sample_n200_t25)
+
+summary(logit_gam5) 
+
+#very signifcant smooth term indicates this is an important parameter in modelling vulnerability
+AIC(logit_gam1)
+AIC(logit_gam2)
+AIC(logit_gam3)
+AIC(logit_gam4)
+AIC(logit_gam5)
+
+#The AIC is leagues above, meaning SAC is very important to capture and predict variation in vulnerability. 
+
+#now check for morans I
+#get the global Moran I using Dharma
+logit_gam5_DharmaSim <- simulateResiduals(fittedModel = logit_gam5, plot = F)
+
+#return Moran
+testSpatialAutocorrelation(logit_gam5_DharmaSim, 
+                           x= sample_n200_t25$jittered_x, 
+                           y= sample_n200_t25$jittered_y,
+                           plot= F)
+```
+
+Including the Spatial Structure hugely increases the fit of the model (AIC) despite adding more complexity to the model; meaning a lot of the variation can be explained by spatial autocorrelation (as is common in spatial studies). However, the Corridor Strength is still a significant predictor of Vulnerability, even when including SAC in the model. This suggests that Corridor strength has a real correlation with Vulnerability, that is distinct from both spatial structure and the input that was used to simulate both of them (habitat suitability).
+
+#### 9) GAM6: MaxResilience-CorridorStrength + covairates + RE(Species) + (SAC by Niche)
+
+This is on pooled data, we should probably also look if the spatial autocorrelation is even more extreme by Niche.
+
+```{r}
+#Plot the classes of Moran I
+ggplot(sample_n200_t25, aes(x = x, y = y, colour= Moran_type)) +
+  geom_point(size= 0.7, alpha= 0.5, 
+             data = ~ group_by(.x, Species, FutureScenario) %>% sample_frac(0.5)) +
+  theme_minimal()
+```
+
+The pooled data seems to find some insignificant Moran values where different niches overlap, meaning it may not be the best way to model the spatial structure of the data. So, we should check if a SAC term that is modelled for each niche is the better model. We would need to add a Niche specific spatial smooth.
+
+```{r}
+#takes a long time so do not rerun
+#logit_gam6 <- gam(Max_resilience ~ logCrStr 
+#                  + s(x,y, by = Niche)
+#                  + s(Species,bs="re"), 
+#                  family = binomial(link = "logit"), 
+#                  data = sample_n200_t25)
+
+logit_gam6 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/logit_gam6.rds")
+
+summary(logit_gam6)
+AIC(logit_gam1)
+AIC(logit_gam2)
+AIC(logit_gam3)
+AIC(logit_gam4)
+AIC(logit_gam5)
+AIC(logit_gam6)
+
+#It is a  good idea to save these models that take a very long time to run:
+#saveRDS(logit_gam6, "~/ConnectivityData_master/Data/SavedModels/logit_gam6.rds")
+
+#first get the global Moran I using Dharma
+logit_gam6_DharmaSim <- simulateResiduals(fittedModel = logit_gam6, plot = F)
+
+#return Moran
+testSpatialAutocorrelation(logit_gam6_DharmaSim, 
+                           x= sample_n200_t25$jittered_x, 
+                           y= sample_n200_t25$jittered_y,
+                           plot= F)
+
+#save
+#saveRDS(logit_gam6, "~/ConnectivityData_master/Data/SavedModels2/logit_gam6.rds")
+```
+
+Unfortunately for my computer, this is clearly the best fitting model (AIC= 2792), and sufficiently accounts for spatial structure as to make SAC unlikely to be distorting results (p\>0.05). Interestingly, the strength-vulnerability relationship of interest drops out, which may suggest it is an artifact of SAC.
+
+#### 10) GAM7: Including spatially varying covariates instead
+
+Instead of including SAC, some recommend just including natural variables of the data collection that had spatial aspects. Because our data is simulated, we know that all of the spatially dependency comes from the temp, precip and elevation. So lets include these in the model and then test Moran's I.
+
+```{r}
+logit_gam7 <- gam(Max_resilience ~ logCrStr 
+                    + Elevation + Temperature + Precipitation + Start_Distance +
+                    + Habitat_Suitability 
+                    + s(Species,bs="re"), 
+                       family = binomial(link = "logit"), 
+                       data = sample_n200_t25)
+
+summary(logit_gam7)
+
+#now check for morans I
+
+#first get the global Moran I using Dharma
+logit_gam7_DharmaSim <- simulateResiduals(fittedModel = logit_gam7, plot = F)
+
+#return Moran
+testSpatialAutocorrelation(logit_gam7_DharmaSim, 
+                           x= sample_n200_t25$jittered_x, 
+                           y= sample_n200_t25$jittered_y,
+                           plot= F)
+```
+
+Including all other variables does account for SAC, however the AIC of the model suffers greatly. Thus, we will continue with a spatial term. We can also drop elevation as a non significant term.
+
+#### 11) Model 8: Spatial Structure and covariates
+
+What if we included both?
+
+```{r}
+#logit_gam8 <- gam(Max_resilience ~ logCrStr 
+#                  + Temperature + Precipitation 
+#                  + Habitat_Suitability + Start_Distance
+#                  + s(Species,bs="re") 
+#                  + s(x,y, by = Niche), 
+#                  family = binomial(link = "logit"), 
+#                  data = sample_n200_t25)
+
+logit_gam8 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/logit_gam8.rds")
+
+summary(logit_gam8)
+
+#now check for morans I
+#first get the global Moran I using Dharma
+logit_gam8_DharmaSim <- simulateResiduals(fittedModel = logit_gam8, plot = F)
+
+#return Moran
+testSpatialAutocorrelation(logit_gam8_DharmaSim, 
+                           x= sample_n200_t25$jittered_x, 
+                           y= sample_n200_t25$jittered_y,
+                           plot= F)
+
+#save
+#saveRDS(logit_gam8, "~/ConnectivityData_master/Data/SavedModels2/logit_gam8.rds")
+```
+
+In this model, there is no significance spatial dependence. Lets view compare its AIC:
+
+```{r}
+AIC(logit_gam1)
+AIC(logit_gam2)
+AIC(logit_gam3)
+AIC(logit_gam4)
+AIC(logit_gam5)
+AIC(logit_gam6)
+AIC(logit_gam7)
+AIC(logit_gam8)
+```
+
+The Deviance explained, as well as the AIC, all agree that the increased complexity is worth the model fit. This is our best model.
+
+#### 12) Final Model
+
+We can finish this model by removing the insignificant precipitation term
+
+```{r}
+#logit_gam9 <- gam(Max_resilience ~ logCrStr 
+#                  + Temperature + Habitat_Suitability + Start_Distance
+#                  + s(Species,bs="re") 
+#                  + s(x,y, by = Niche), 
+#                  family = binomial(link = "logit"), 
+#                  data = sample_n200_t25)
+
+logit_gam9 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/logit_gam9.rds")
+
+summary(logit_gam9)
+
+#now check for morans I
+#first get the global Moran I using Dharma
+logit_gam9_DharmaSim <- simulateResiduals(fittedModel = logit_gam9, plot = F)
+
+#return Moran
+testSpatialAutocorrelation(logit_gam9_DharmaSim, 
+                           x= sample_n200_t25$jittered_x, 
+                           y= sample_n200_t25$jittered_y,
+                           plot= F)
+
+AIC(logit_gam9)
+
+#save
+#saveRDS(logit_gam9, "~/ConnectivityData_master/Data/SavedModels2/logit_gam9.rds")
+```
+
+This model accounts for SAC and has a similar minimal AIC, with the lowest number of terms possible.
+
+#### 12) Checking Assumptions
+
+We should check how appropriate these models are. A quick start is viewing the residual-vs-fitted.
+
+```{r}
+#The binned residual plot can check that residuals are not deviating from what the model expects (with 95% CI, grey lines). With binary data if often comes up with an inherent error where the average residuals are falsely shifted down. This is because we are supplying it with residuals on the logit scale, but with the expected model values on the response scale.
+
+#So first we use the data to create an object of residuals that are on the repsonse scale;
+
+#convert the predicted logit values to probabilities
+response_pred9 <- plogis(predict(logit_gam9))
+
+#the residuals on the response scale is the 0/1 minus the predicted value
+response_residuals9 <- sample_n200_t25$Max_resilience - response_pred9
+
+#this can now fit a proper binnedplot
+binnedplot(response_pred9, response_residuals9)
+```
+
+We can see that 95% of the residuals fit within the expected bins. So we can be confident that this is a well fitting model.
+
+#### 13) Conclusions of Part 1
+
+We can view our final model (GAM9) and it's estimates:
+
+```{r}
+GAMfinalpredicted_resilience <- predict(logit_gam9, type = "response")
+
+ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
+  geom_jitter(width = 0.01, height = 0.005, size = 0.75, alpha = 0.08,
+              aes(color = factor(Max_resilience))) + 
+  geom_smooth(aes(y = GAMfinalpredicted_resilience), color = "black", size = 1) +  
+  geom_vline(xintercept = med_logCrStr_0, color = "red", linetype = "dashed") + 
+  geom_vline(xintercept = med_logCrStr_1, color = "blue", linetype = "dashed") +
+  geom_point(aes(x = med_logCrStr_0, y = 0), color = "red", size = 3) +
+  geom_point(aes(x = med_logCrStr_1, y = 1), color = "blue", size = 3) +
+  labs(x = "Log Corridor Strength", y = "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks = c(0, 1), 
+                     labels = c("Vulnerable", "No Detectable Vulnerability")) +
+  theme(legend.position = "none")
+```
+
+```{r}
+#confint() doesnt seem to work for gam (mgcv) so we will calculate the CI directly
+
+#the summary gives standard error, so we can use this to construct CI:
+logit_gam9_summary <- summary(logit_gam9)
+logit_gam9_summary
+
+#meaning we can calculate the CI bounds:
+lower_bound9 <- logit_gam9_summary$p.coeff["logCrStr"] - 1.96 *    
+                logit_gam9_summary$se["logCrStr"]
+upper_bound9 <- logit_gam9_summary$p.coeff["logCrStr"] + 1.96 * 
+                logit_gam9_summary$se["logCrStr"]
+
+#and put it all in a nice dataframe:
+Model9_CI <- data.frame(Lower_CI = lower_bound9, 
+                        Slope = logit_gam9_summary$p.coeff["logCrStr"], 
+                        Upper_CI = upper_bound9)
+Model9_CI
+```
+
+Our most robust model suggests that stronger corridors are more likely (increased log odds) to have an undetectable level of climate vulnerability by our metric; aka are more likely to be situated on a corridor that will be in the top 3.125% most ecologically important future corridors. This correlation (not causation) holds as a real relationship despite the inclusion of the input variables for the simulation, the variability between factors, the stationary start/end locations, and the SAC of each individual niche.
+
+This aligns with the ecological theory (stronger corridors are more likely to be situated in ideal niche space, whilst also accounting for dispersal, and thus should be more resilient than weaker) and therefore is our first line of evidence that conservation practitioners may be able to use current corridor strength to estimate climate vulnerability.
+
+```{r}
+#make a dummy dataframe where only the Vulnerability, Strength, and SAC are retained as terms (all else is mean average)
+new_data <- data.frame(
+  Vulnerability = seq(min(sample_n200_t25$Vulnerability), 
+                max(sample_n200_t25$Vulnerability), 
+                length.out = 100),
+  Niche = sample_n200_t25$Niche,
+  Species = sample_n200_t25$Species,
+  x = sample_n200_t25$x,
+  y = sample_n200_t25$y,
+  logCrStr = seq(min(sample_n200_t25$logCrStr), 
+                max(sample_n200_t25$logCrStr), 
+                length.out = 100),
+  Temperature = mean(sample_n200_t25$Temperature),
+  Elevation = mean(sample_n200_t25$Elevation),
+  Precipitation = mean(sample_n200_t25$Precipitation),
+  Elevation = mean(sample_n200_t25$Elevation),
+  Habitat_Suitability = mean(sample_n200_t25$Habitat_Suitability),
+  Start_Distance = mean(sample_n200_t25$Start_Distance)
+)
+
+#add a column of the model's predicitons of this relationship
+new_data$predicted_resilience <- predict(logit_gam9, newdata = new_data, type = "response")
+
+#plot
+ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
+  geom_jitter(width = 0.01, height = 0.005, size = 0.75, alpha = 0.08,
+              aes(color = factor(Max_resilience))) + 
+  geom_smooth(aes(y = GAMfinalpredicted_resilience), color = "black", size = 1) + 
+  geom_smooth(aes(y = new_data$predicted_resilience), color = "darkgreen", size = 1) +
+  geom_vline(xintercept = med_logCrStr_0, color = "red", linetype = "dashed") + 
+  geom_vline(xintercept = med_logCrStr_1, color = "blue", linetype = "dashed") +
+  geom_point(aes(x = med_logCrStr_0, y = 0), color = "red", size = 3) +
+  geom_point(aes(x = med_logCrStr_1, y = 1), color = "blue", size = 3) +
+  labs(x = "Log Corridor Strength", y = "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks = c(0, 1), 
+                     labels = c("Vulnerable", "No Detectable Vulnerability")) +
+  theme(legend.position = "none")
+```
+
+Although this suggests direction, this binary data is very much a byproduct of the design of the Vulnerability Metric and has limited data points and information. The more powerful result will be in the modelling of the non-zero semi-continuous data...
+
+## Part Two; Modeling the Strength-Vulnerability Trend
+
+#### 1) Data Preparation
+
+First we are going to make a sub data set which has only nonzero values.
+
+For making your own sample:
+
+```{r}
+#filter zeros
+sample_n200_t25_n0 <- sample_n200_t25[sample_n200_t25$Vulnerability != 0, ]
+
+#verify and display
+sum(any(sample_n200_t25_n0$Vulnerability == 0))
+head(sample_n200_t25_n0)
+
+#save
+#write.csv(sample_n200_t25_n0, "C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Dataframes2\\sample_ks_april_n0.csv", row.names = FALSE)
+```
+
+The later analysis is too much for my laptop to handle. I am going to take a smaller subsample as this will decrease computational time while also decreasing spatial autocorrelation. This is more possible with this second part because the previous part was limited by a small number of '1's; whereas this analysis benefits from using all the data.
+
+This code takes a new subsample, or loads the subsample that I used.
+
+```{r}
+#take balanced samples grouped by the factors. Considering Future Scenario has little to no impact, sampling 50 means that each species will have 150 datapoints and each niche 300. This should be sufficient for the preliminary analysis
+#we sample in a blanced way
+#testsample_n0 <- sample_n200_t25_n0 %>% group_by(Species, FutureScenario) %>% sample_n(50)
+
+#write.csv(testsample_n0, "filename", row.names = FALSE)
+
+#to replicate my sample again:
+testsample_n0 <- read.csv("testsample_n0.csv",header= TRUE)
+
+#if loading data, will need this
+#We should also define that the factros are in fatc factors, not character strings:
+testsample_n0$Species <- factor(testsample_n0$Species)
+testsample_n0$SpecGen <- factor(testsample_n0$SpecGen)
+testsample_n0$AltitudeNiche <- factor(testsample_n0$AltitudeNiche)
+testsample_n0$WaterNiche <- factor(testsample_n0$WaterNiche)
+testsample_n0$Range <- factor(testsample_n0$Range)
+testsample_n0$FutureScenario <- factor(testsample_n0$FutureScenario)
+testsample_n0$Niche <- factor(testsample_n0$Niche)
+```
+
+#### 2) Exploration
+
+Lets explore the relationship we are interested in:
+
+```{r}
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability))) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+```
+
+We can also explore how the different factors may or may not be relevant
+
+```{r}
+#we might be interested in how this relationship depends on:
+# the three future scenario
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability), 
+            colour= FutureScenario)) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+
+#altitude niche
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability), 
+            colour= AltitudeNiche)) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+
+#water niche 
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability), 
+            colour= WaterNiche)) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+
+#niche 
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability), 
+            colour= Niche)) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+
+#Range 
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability), 
+            colour= Range)) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+
+#These are captured by the species
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability), 
+            colour= Species)) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+```
+
+From this we can already see a few things. The future scenario seems to has no relevance. The two altitudes seem to alter the intercept, while the three precipitation specialisms cause the slope to vary but not the intercept. As a result the 'Niche' varies in both slope and intercept. The range seems to have less effect, and so it may or may not be necessary to model by species.
+
+#### 3) Visualise Residual Variance
+
+First, lets look at the semi-continuous data to prepare for modelling.
+
+```{r}
+#display the response data in a histogram
+ggplot(testsample_n0,
+       aes(x= Vulnerability))+
+  geom_histogram(bins = 50)+
+  labs(title = "Y response Histogram", 
+       x = "Vulnerability", 
+       y = "Frequency")
+```
+
+We no longer have to worry about zero inflation, leaving us with a highly right skewed response distribution (and SAC lurking i the background).
+
+Lets find what the ideal link would be, using a box-cox transformation test.
+
+```{r}
+#library(arm)
+#run box-cox
+BOXCOX_output <- boxcox(testsample_n0$Vulnerability ~ 1, 
+                        plotit = TRUE)
+
+#save the lambda to call later
+lambda <- BOXCOX_output$x[which.max(BOXCOX_output$y)]
+lambda # = -0.02020202
+```
+
+The box cos gives back a result very close to zero. 1 would mean no transformation is needed, while this close to zero implies a simple log transformation is the best choice:
+
+```{r}
+#display the response data in a histogram
+ggplot(testsample_n0,
+       aes(x= log(Vulnerability)))+
+  geom_histogram(bins = 35)+
+  labs(title = "Y response Histogram", 
+       x = "log Vulnerability", 
+       y = "Frequency")
+```
+
+However, you can see that the real issue here is a near zero cluster.
+
+#### 4) Choosing the Variance Function
+
+I am going to use GAM again because it allows for the inclusion of a spatial smoothing term, but lets build up. We are going to use log corridor strength, and a log link (a log-log relationship). As shown above, the variance function is more complex. So we will try a few. As we have prior knowledge, we are going to start with Spatial smoother and blocking by species.
+
+First we can model the variance as a Gaussian.
+
+```{r}
+#Contin_gam_guass <- gam(Vulnerability ~ logCrStr 
+#                        + Elevation + Temperature + Precipitation
+#                        + Habitat_Suitability + Start_Distance 
+#                        + s(x,y, by = Niche) 
+#                        + s(Species,bs="re"), 
+#                        family = gaussian(link = "log"), 
+#                        data = testsample_n0)
+
+#save
+#saveRDS(Contin_gam_guass, "~/ConnectivityData_master/Data/SavedModels2/Contin_gam_guass.rds")
+
+#replicate my sample
+Contin_gam_guass <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Contin_gam_guass.rds")
+
+summary(Contin_gam_guass)
+
+gam.check(Contin_gam_guass)
+AIC(Contin_gam_guass)
+```
+
+However, the variance is not transformed by the log link so follows the distribution shown above (both qq plot and variance show two tailed distribution). This is a right skewed, positive only distribution. And we can now see that the residuals increase in variance scaling with the linear predictor (logCrStr): funneling of residuals. This is suitable for a Gamma distribution, which specifically follows increasing variance with scale, right skewed, positive only data.
+
+```{r}
+#Model a log link with a gamma variance function
+#Contin_gam_gamma <- gam(Vulnerability ~ logCrStr 
+#                        + Elevation + Temperature + Precipitation
+#                        + Habitat_Suitability + Start_Distance
+#                        + s(x,y, by = Niche) 
+#                        + s(Species,bs="re"), 
+#                        family = Gamma(link = "log"), 
+#                        data = testsample_n0)
+
+#save
+#saveRDS(Contin_gam_gamma, "~/ConnectivityData_master/Data/SavedModels2/Contin_gam_gamma.rds")
+
+#replicate my sample
+Contin_gam_gamma <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Contin_gam_gamma.rds")
+
+summary(Contin_gam_gamma)
+
+gam.check(Contin_gam_gamma)
+
+AIC(Contin_gam_gamma)
+
+#test for normality now
+residuals_continV_sample1 <- sample(residuals(Contin_gam_gamma), size = 1800)
+shapiro.test(residuals_continV_sample1)
+```
+
+We can see that this has dealt much better with that 'funneling' of residuals, as well as increased normality of the residuals.
+
+A tweedie distribution is for right skew data and can uniquely have a cluster of points near zero (point mass), which is appropriate for our response distribution.
+
+```{r}
+#Contin_gam_tweed <- gam(Vulnerability ~ logCrStr 
+#                        + Elevation + Temperature + Precipitation
+#                        + Habitat_Suitability + Start_Distance 
+#                        + s(x,y, by = Niche) 
+#                        + s(Species,bs="re"), 
+#                        family = tw(link = "log"), 
+#                        data = testsample_n0)
+
+#save
+#saveRDS(Contin_gam_tweed, "~/ConnectivityData_master/Data/SavedModels2/Contin_gam_tweed.rds")
+
+#replicate my sample
+Contin_gam_tweed <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Contin_gam_tweed.rds")
+
+summary(Contin_gam_tweed)
+
+gam.check(Contin_gam_tweed)
+
+AIC(Contin_gam_tweed)
+
+residuals_continV_sample2 <- sample(residuals(Contin_gam_tweed), size = 1800)
+shapiro.test(residuals_continV_sample2)
+```
+
+The histogram of residuals as well as the qqplot show that this model is also a good variance function to achieve normality of residuals. We can compare the AIC of the different variance functions used:
+
+```{r}
+AIC(Contin_gam_guass) 
+AIC(Contin_gam_gamma) 
+AIC(Contin_gam_tweed)
+```
+
+Which confirms that the gamm increases model fit most. We can safely remove elevation and temperature from later analyses.
+
+We can see that the distribution simultaneously approaches normality and homosckedasticity of residuals. As well as being the best fitting model (AIC). So we will use a log link and tweedie variance function.
+
+#### 5) TW0: Baseline Model
+
+First lets get a baseline Minimal model to compare with. The minimal model will be an X\~Y GAM with no spatial term, and only a species random effect.
+
+```{r}
+#full model, pooled spatial term
+#Gam_tw0_test <- gam(Vulnerability ~ logCrStr + s(Species,bs="re"), family = tw(link = "log"), data = testsample_n0)
+
+#save
+#saveRDS(Gam_tw0_test, "~/ConnectivityData_master/Data/SavedModels2/Gam_tw0_test.rds")
+Gam_tw0_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam_tw0_test.rds")
+
+#Return summary and AIC
+summary(Gam_tw0_test)
+AIC(Gam_tw0_test)
+
+#view residual fitted:
+DharmaSim_tw0_BySp = recalculateResiduals(DharmaSim_tw0, 
+                                         group = testsample_n0$Species)
+
+plot(DharmaSim_tw0)
+plot(DharmaSim_tw0_BySp)
+
+#to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
+#Identify the minimimum threshold distance that will give every observation at least 1 neighbour
+test_Coords <- cbind(testsample_n0$x, testsample_n0$y)
+
+#Identify the minimimum threshold distance that will give every observation at least 1 neighbour
+dist_matrix2 <- as.matrix(dist(test_Coords)) 
+
+#save the minimum distance where each has 1 neighbour
+min_distance2 <- max(apply(dist_matrix2, 1, function(row) min(row[row > 0]))) 
+# = 61594.2
+
+# Define neighbors based on distance (e.g., within a certain distance threshold)
+nb2 <- dnearneigh(test_Coords, d1 = 0, d2 = min_distance2) 
+
+# Convert neighbors list to a spatial weights matrix
+lw2 <- nb2listw(nb2, zero.policy = TRUE)
+
+#and then test with 1000 simulations
+tw0_deviance <- residuals(Gam_tw0_test, type = 'deviance')
+moran.mc(tw0_deviance, listw = lw2, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- testsample_n0
+
+# Add residuals to your dummy dataframe
+tw0_deviance <- residuals(Gam_tw0_test, type = 'deviance')
+dummytestsample$tw0_residuals <- tw0_deviance
+
+# Calculate the empirical variogram
+variogram_tw0 <- variogram(tw0_residuals ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_tw0, 
+     main = "Variogram of GAM0 Residuals; Y~X + re(Species)", 
+     pch = 16, col = "blue")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_tw0 <- fit.variogram(variogram_tw0, 
+                                 model = vgm(psill = 1, "Exp", 
+                                             range = 500000, 
+                                             nugget = 0.1))
+
+plot(variogram_tw0, model = variomodel_tw0, 
+     main = "Variogram of GAM0 Residuals; Y~X + re(Species)")
+
+nugget_tw0 <- variomodel_tw0$psill[1]
+sill_tw0 <- variomodel_tw0$psill[1] + variomodel_tw0$psill[2]
+non_sp_variaiton_tw0 <- (nugget_tw0/sill_tw0)*100
+spatialvariaiton_tw0 <- 100-non_sp_variaiton_tw0
+
+#build spatial inference df
+SACtable_tw0 <- data.frame(Nugget = nugget_tw0, 
+                        Sill = sill_tw0, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_tw0)
+SACtable_tw0
+
+#build CI conclusion table
+tw0_summary <- summary(Gam_tw0_test)
+
+lowerbound_tw0 <- tw0_summary$p.coeff["logCrStr"] - 1.96 *    
+                tw0_summary$se["logCrStr"]
+upperbound_tw0 <- tw0_summary$p.coeff["logCrStr"] + 1.96 * 
+                tw0_summary$se["logCrStr"]
+
+#and put it all in a nice dataframe:
+tw0_CI <- data.frame(Lower_CI = lowerbound_tw0, 
+                        Slope = tw0_summary$p.coeff["logCrStr"], 
+                        Upper_CI = upperbound_tw0)
+tw0_CI
+
+```
+
+AIC = 36,774
+
+Moran I = 0.306 (p\<0.05)
+
+\% Variation that is spatially explained = 69%
+
+Relationship = -0.42 \< **-0.373** \< -0.33
+
+Deviance explained = 26%
+
+You can see from calling st_crs() that the coordinates object is in metres, which means any euclidean distances between them will be calculated in meters. From going onto ARCGISpro and using the measure tool, the maximum distance points are likely to be separated is around 1,000km. Though this is not very ecologically relevant; we are most interested in about 250\~500km. Thus we can safely set the cutoff of variograms to around 300km (300,000) to compare relevant SAC.
+
+Now that we can see how storng the SAC is, we can jump straight to a full model.
+
+#### 6) TW1: Vulnerability-CorridorStrength + FULL + RE(Species) + SAC pooled
+
+Now we are confident in the link and variance function, we need to just explore parameters. The Tweedie model we have made is our most complex.
+
+We should try with a pooled spatial term to start:
+
+```{r}
+#full model, pooled spatial term
+#Gam_tw1_test <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + s(x,y) + s(Species,bs="re"), family = tw(link = "log"), data = testsample_n0)
+
+#save
+#saveRDS(Gam_tw1_test, "~/ConnectivityData_master/Data/SavedModels2/Gam_tw1_test.rds")
+Gam_tw1_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam_tw1_test.rds")
+
+#Return summary and AIC
+summary(Gam_tw1_test)
+AIC(Gam_tw1_test)
+
+#view residual fitted:
+tw1_DharmaSim <- simulateResiduals(fittedModel = Gam_tw1_test,
+                                           plot = F)
+DharmaSim_tw1 <- simulateResiduals(fittedModel = Gam_tw1_test, 
+                                            plot = F)
+DharmaSim_tw1_BySp = recalculateResiduals(DharmaSim_tw1, 
+                                         group = testsample_n0$Species)
+
+plot(DharmaSim_tw1)
+plot(DharmaSim_tw1_BySp)
+
+#to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
+tw1_deviance <- residuals(Gam_tw1_test, type = 'deviance')
+moran.mc(tw1_deviance, listw = lw2, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- testsample_n0
+
+# Add residuals to your dummy dataframe
+dummytestsample$tw1_residuals <- tw1_deviance
+
+# Calculate the empirical variogram
+variogram_tw1 <- variogram(tw1_residuals ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_tw1, 
+     main = "Variogram of GAM1 Residuals; Y~X + full + re(Species) + pooled(xy)", 
+     pch = 16, col = "blue")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_tw1 <- fit.variogram(variogram_tw1, 
+                                 model = vgm(psill = 1, "Exp", 
+                                             range = 500000, 
+                                             nugget = 0.1))
+
+plot(variogram_tw1, model = variomodel_tw1, 
+     main = "Variogram of GAM1 Residuals; Y~X + full + re(Species) + pooled(xy)")
+
+nugget_tw1 <- variomodel_tw1$psill[1]
+sill_tw1 <- variomodel_tw1$psill[1] + variomodel_tw1$psill[2]
+non_sp_variaiton_tw1 <- (nugget_tw1/sill_tw1)*100
+spatialvariaiton_tw1 <- 100-non_sp_variaiton_tw1
+
+#build spatial inference df
+SACtable_tw1 <- data.frame(Nugget = nugget_tw1, 
+                        Sill = sill_tw1, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_tw1)
+SACtable_tw1
+
+#build CI conclusion table
+tw1_summary <- summary(Gam_tw1_test)
+
+lowerbound_tw1 <- tw1_summary$p.coeff["logCrStr"] - 1.96 *    
+                tw1_summary$se["logCrStr"]
+upperbound_tw1 <- tw1_summary$p.coeff["logCrStr"] + 1.96 * 
+                tw1_summary$se["logCrStr"]
+
+#and put it all in a nice dataframe:
+tw1_CI <- data.frame(Lower_CI = lowerbound_tw1, 
+                        Slope = tw1_summary$p.coeff["logCrStr"], 
+                        Upper_CI = upperbound_tw1)
+tw1_CI
+
+```
+
+AIC = 35,716
+
+Moran I = 0.125 (p\<0.05)
+
+\% Variation that is spatially explained = 53%
+
+Relationship = -0.20 \< **-0.160** \< -0.12
+
+Deviance explained = 56%
+
+This model is a very good fit to meet the key assumptions for inference, as seen in the residual fitted and qq plots. However, it is not able to account for SAC very well.
+
+#### 7) TW2: Vulnerability-CorridorStrength + FULL + RE(Species) + SAC by Niche
+
+From the previous hurdle as well as exploratory graphing, we know that SAC by Niche is usually best.
+
+So, lets try this:
+
+```{r}
+#Gam_tw2_test <- gam(Vulnerability ~ logCrStr + Precipitation+ Habitat_Suitability + Start_Distance + s(x,y, by = Niche) + s(Species,bs="re"), family = tw(link = "log"), data = testsample_n0)
+
+#save
+#saveRDS(Gam_tw2_test, "~/ConnectivityData_master/Data/SavedModels2/Gam_tw2_test.rds")
+Gam_tw2_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam_tw2_test.rds")
+
+#Return summary and AIC
+summary(Gam_tw2_test)
+AIC(Gam_tw2_test)
+
+#view residual fitted:
+tw2_DharmaSim <- simulateResiduals(fittedModel = Gam_tw2_test,
+                                           plot = F)
+DharmaSim_tw2 <- simulateResiduals(fittedModel = Gam_tw2_test, 
+                                            plot = F)
+DharmaSim_tw2_BySp = recalculateResiduals(DharmaSim_tw2, 
+                                         group = testsample_n0$Species)
+
+plot(DharmaSim_tw2)
+plot(DharmaSim_tw2_BySp)
+
+#and then test with 1000 simulations
+tw2_deviance <- residuals(Gam_tw2_test, type = 'deviance')
+moran.mc(tw2_deviance, listw = lw2, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- testsample_n0
+
+# Add residuals to your dummy dataframe
+tw2_deviance <- residuals(Gam_tw2_test, type = 'deviance')
+dummytestsample$tw2_residuals <- tw2_deviance
+
+# Calculate the empirical variogram
+variogram_tw2 <- variogram(tw2_residuals ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_tw2, 
+     main = "Variogram of GAM2 Residuals; Y~X + full + re(Species) + Niche(xy)", 
+     pch = 16, col = "blue")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_tw2 <- fit.variogram(variogram_tw2, 
+                                 model = vgm(psill = 5, "Exp", 
+                                             range = 50000, 
+                                             nugget = 13))
+
+plot(variogram_tw2, model = variomodel_tw2, 
+     main = "Variogram of GAM2 Residuals; Y~X + full + re(Species) + Niche(xy)")
+
+nugget_tw2 <- variomodel_tw2$psill[1]
+sill_tw2 <- variomodel_tw2$psill[1] + variomodel_tw2$psill[2]
+non_sp_variaiton_tw2 <- (nugget_tw2/sill_tw2)*100
+spatialvariaiton_tw2 <- 100-non_sp_variaiton_tw2
+
+#build df
+SACtable_tw2 <- data.frame(Nugget = nugget_tw2, 
+                        Sill = sill_tw2, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_tw2)
+SACtable_tw2
+
+#build CI conclusion table
+tw2_summary <- summary(Gam_tw2_test)
+
+lowerbound_tw2 <- tw2_summary$p.coeff["logCrStr"] - 1.96 *    
+                tw2_summary$se["logCrStr"]
+upperbound_tw2 <- tw2_summary$p.coeff["logCrStr"] + 1.96 * 
+                tw2_summary$se["logCrStr"]
+
+#and put it all in a nice dataframe:
+tw2_CI <- data.frame(Lower_CI = lowerbound_tw2, 
+                        Slope = tw2_summary$p.coeff["logCrStr"], 
+                        Upper_CI = upperbound_tw2)
+tw2_CI
+```
+
+AIC = 35,130
+
+Moran I = -0.03 (p\>0.05, no clustering)
+
+\% Variation that is spatially explained = 55%
+
+Relationship = -0.11 \< **-0.07** \< -0.04
+
+Deviance explained = 69%
+
+This model decreases the difference between nugget and sill in the variogram (meaning a lower % of the variance is due to SAC), which we can also see with a much smaller SAC effect in the montecarlo simulation . As a result, the test returns that there is no signficant clustering.
+
+The qq plot of residuals does seem to follow normal residuals, but is now we more seriosuly violating the assumption of homoskedasticity.
+
+#### 8) Conclusions to GAM modelling
+
+Behind the scenes, I tried upwards of 30 GAM models varying both parameters and mostly the spatial term. Including spherical, exponential, power, gaussian, matern, and manually parametised spatial terms (where possible). Unfortunately, none of these approaches seem to be able to account for the SAC in the data.
+
+GLMMs in R are able to model some more flexible spatial terms, but cannot use the tweedie variance function, so may not be able to satisfy core assumptions. Lets explore these GLMMs.
+
+#### 8) GLMM1: Full model with imposed large range SAC and high smoothness
+
+A gamma variance function is our next best option. Here we use a matern spatial structure. In this model, we constrain rho (a distance scaling factor) to be larger than the package estimates automatically. Because rho is related to nu (the smoothness of the spatial pattern), this results in nu being smaller. In general, this glmm uses a spatial structure that is highly flexible and assumes SAC is strong over large distances.
+
+Unfortunately, due to limits on filesize in github, these large models need to be run locally to recreate on the same data. Please allow 10-30 minutes. As a result, they are absent from the 'SavedModels' folder.
+
+```{r}
+#In a glmm we can specify the matern spatial structure, which is more flexible 
+#glmm1_test <- fitme(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + Matern(1 | x + y), data = testsample_n0, family = Gamma(link = 'log'), init = list(corrPars = list("1" = list(rho = 0.1))), control.HLfit = list(NbThreads = 9)) 
+
+#save
+#saveRDS(glmm1_test, "~/ConnectivityData_master/Data/SavedModels2/Glmm1_test.rds")
+glmm1_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Glmm1_test.rds")
+
+#Return summary and AIC
+summary(glmm1_test)
+AIC(glmm1_test)
+
+#view residual fitted:
+DharmaSim_glmm1 <- simulateResiduals(fittedModel = glmm1_test,
+                                           plot = F)
+DharmaSim_glmm1_BySp = recalculateResiduals(DharmaSim_glmm1, 
+                                         group = testsample_n0$Species)
+
+plot(DharmaSim_glmm1)
+plot(DharmaSim_glmm1_BySp)
+
+#to use the montecarlo moran test, which is more robust,
+#test with 1000 simulations
+glmm1_deviance <- residuals(glmm1_test, type = 'deviance')
+moran.mc(glmm1_deviance, listw = lw2, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- testsample_n0
+
+# Add residuals to your dummy dataframe
+dummytestsample$glmm1_residuals <- glmm1_deviance
+
+# Calculate the empirical variogram
+variogram_glmm1 <- variogram(glmm1_residuals ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_glmm1 <- fit.variogram(variogram_glmm1, 
+                                 model = vgm(psill = 0.12, "Exp", 
+                                             range = 50000, 
+                                             nugget = 0.15))
+
+plot(variogram_glmm1, model = variomodel_glmm1, cutoff = 250000,  
+     main = "Variogram of glmm1 Residuals; FUll + matern(xy, rho= large)")
+
+nugget_glmm1 <- variomodel_glmm1$psill[1]
+sill_glmm1 <- variomodel_glmm1$psill[1] + variomodel_glmm1$psill[2]
+non_sp_variaiton_glmm1 <- (nugget_glmm1/sill_glmm1)*100
+spatialvariaiton_glmm1 <- 100-non_sp_variaiton_glmm1
+
+#build df
+SACtable_glmm1 <- data.frame(Nugget = nugget_glmm1, 
+                        Sill = sill_glmm1, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_glmm1)
+SACtable_glmm1
+
+#build CI conclusion table
+fixef_glmm1 <- fixef(glmm1_test)
+glmm1_summary <- summary(glmm1_test)
+
+lowerbound_glmm1 <- fixef_glmm1["logCrStr"] - 1.96 *    
+                glmm1_summary$beta_table[2,2]
+upperbound_glmm1 <- fixef_glmm1["logCrStr"] + 1.96 * 
+                glmm1_summary$beta_table[2,2]
+
+#and put it all in a nice dataframe:
+glmm1_CI <- data.frame(Lower_CI = lowerbound_glmm1, 
+                        Slope = fixef_glmm1["logCrStr"], 
+                        Upper_CI = upperbound_glmm1)
+glmm1_CI
+```
+
+AIC = 35,514
+
+Moran I = 0.28 (p\<0.05)
+
+\% Variation that is spatially explained = 49%
+
+Relationship = -0.12 \< **-0.081** \< -0.03
+
+For GLMMs the conditional AIC includes both fixed and random effects, and how they influence estimates, so is most appropriate for us to use here.
+
+#### 9) GLMM2: Full model with automatic rapid decaying SAC and more rigid
+
+In this next model, the spatial decay (rho) and smoothness (nu) are unconstrained so R decides them automatically. In this case, it results in a spatial term that has a much smaller rho; R thinks that the spatial autocorrelation decays rapidly so is strongest at short distances. And is slightly less smooth.
+
+```{r}
+#In a glmm we can specify the matern spatial structure, which is more flexible 
+#glmm2_test <- fitme(Vulnerability ~ logCrStr + Precipitation + Start_Distance + Habitat_Suitability + Matern(1 | x + y), data = testsample_n0, family = Gamma(link = 'log'), control.HLfit = list(NbThreads = 9)) 
+
+#save
+#saveRDS(glmm2_test, "~/ConnectivityData_master/Data/SavedModels2/Glmm2_test.rds")
+glmm2_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Glmm2_test.rds")
+
+#Return summary and AIC
+summary(glmm2_test)
+AIC(glmm2_test)
+
+#view residual fitted:
+DharmaSim_glmm2 <- simulateResiduals(fittedModel = glmm2_test,
+                                           plot = F)
+DharmaSim_glmm2_BySp = recalculateResiduals(DharmaSim_glmm2, 
+                                         group = testsample_n0$Species)
+
+plot(DharmaSim_glmm2)
+plot(DharmaSim_glmm2_BySp)
+
+#to use the montecarlo moran test, which is more robust,
+#test with 1000 simulations
+glmm2_deviance <- residuals(glmm2_test, type = 'deviance')
+moran.mc(glmm2_deviance, listw = lw2, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- testsample_n0
+
+# Add residuals to your dummy dataframe
+dummytestsample$glmm2_residuals <- glmm2_deviance
+
+# Calculate the empirical variogram
+variogram_glmm2 <- variogram(glmm2_residuals ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_glmm2, 
+     main = "Variogram of glmm2 Residuals; Full + matern(xy, rho= auto)", 
+     pch = 1, col = "#1560BD")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_glmm2 <- fit.variogram(variogram_glmm2, 
+                                 model = vgm(psill = 0, "Exp", 
+                                             range = 50000, 
+                                             nugget = 0.4))
+
+plot(variogram_glmm2, model = variomodel_glmm2, cutoff = 250000,  
+     main = "Variogram of glmm2 Residuals; Full + matern(xy, rho= auto)")
+
+nugget_glmm2 <- variomodel_glmm2$psill[1]
+sill_glmm2 <- variomodel_glmm2$psill[1] + variomodel_glmm2$psill[2]
+non_sp_variaiton_glmm2 <- (nugget_glmm2/sill_glmm2)*100
+spatialvariaiton_glmm2 <- 100-non_sp_variaiton_glmm2
+
+#build df
+SACtable_glmm2 <- data.frame(Nugget = nugget_glmm2, 
+                        Sill = sill_glmm2, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_glmm2)
+SACtable_glmm2
+
+#build CI conclusion table
+fixef_glmm2 <- fixef(glmm2_test)
+glmm2_summary <- summary(glmm2_test)
+
+lowerbound_glmm2 <- fixef_glmm2["logCrStr"] - 1.96 *    
+                glmm2_summary$beta_table[2,2]
+upperbound_glmm2 <- fixef_glmm2["logCrStr"] + 1.96 * 
+                glmm2_summary$beta_table[2,2]
+
+#and put it all in a nice dataframe:
+glmm2_CI <- data.frame(Lower_CI = lowerbound_glmm2, 
+                        Slope = fixef_glmm2["logCrStr"], 
+                        Upper_CI = upperbound_glmm2)
+glmm2_CI
+```
+
+AIC = 35,021
+
+Moran I = -0.017 (p\>0.05)
+
+\% Variation that is unaccounted-for Spatial Clustering= 0%
+
+Relationship = -0.15 \< **-0.12** \< -0.08
+
+This model effectively accounts for spatial clustering, and is generally a better fit (according to AIC). However, it does not meet the assumptions of normality and homoskedasticity
+
+We can see that the Moran I has become slightly negative, which is reflected in the slightly inverted variogram. This is essentially because the Matern term is over fitting to the spatial structure. the spatial correlation is being modeled at a scale that is too small, effectively introducing artificial negative spatial dependence. However, as we already know that the SAC in the data is clustering, this model definitely accounts for the natural spatial structure (and slightly over-corrects it).
+
+Despite the spatial structure being fully accounted for (even over-corrected) the conclusion in slope does not change much, and is still significant.
+
+#### 10) Outcome of Test sample
+
+It is not uncommon for data to be resistant to modelling with the available packages, a common work around to still show a significant result is to show that the coefficient of interest (slope for us) is always significant in a spectrum of models. Our spectrum above captures models that can meet core assumptions (but poor at accounting for SAC) and models that account for SAC (but break key assumptions). If we show that the conclusion is the same in all of these models, this can be taken as strong evidence that the slope would remain the same if a perfect model were to be found.
+
+To do so, we should plot the predictions of each of the 4 key models (+minimal) on one graph to see how much they converge.
+
+```{r}
+#extract predictions (need to convert glmm matrix to numeric)
+GAM0predictions <- predict(Gam_tw0_test, type = "response")
+GAM1predictions <- predict(Gam_tw1_test, type = "response")
+GAM2predictions <- predict(Gam_tw2_test, type = "response")
+GLMM1predictions <- predict(glmm1_test, type = "response")
+GLMM1predictions_values <- as.numeric(GLMM1predictions)
+GLMM2predictions <- predict(glmm2_test, type = "response")
+GLMM2predictions_values <- as.numeric(GLMM2predictions)
+
+#plot all together, without confidence interval
+ggplot(data = testsample_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.06) +
+  geom_smooth(aes(y = GAM1predictions), color = "#009933", size = 1, se=F) +  
+  geom_smooth(aes(y = GAM2predictions), color = "#00ff33", size = 1, se=F) +  
+  geom_smooth(aes(y = GLMM1predictions_values), color = "#336633", size = 1,se=F) +
+  geom_smooth(aes(y = GLMM2predictions_values), color = "#33ff99", size = 1,se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "Model Spectrum Predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 50000))
+
+#plot one on each
+
+ggplot(data = testsample_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.1) +
+  geom_smooth(aes(y = GLMM1predictions_values), color = "#336633", size = 2) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM1 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 50000))
+
+ggplot(data = testsample_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.1) +
+  geom_smooth(aes(y = GAM1predictions), color = "#009933", size = 2) +  
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GAM1 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 50000))
+
+ggplot(data = testsample_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.1) +
+  geom_smooth(aes(y = GAM2predictions), color = "#00ff33", size = 2) +  
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GAM2 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 50000))
+
+ggplot(data = testsample_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.1) +
+  geom_smooth(aes(y = GLMM2predictions_values), color = "#33ff99", size = 2) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM2 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 50000))
+
+
+```
+
+I compiled these graphs so that they can be compared easily, in the following png.
+
+```{r}
+knitr::include_graphics("~/ConnectivityData_master/Data/Images/HurdleP2_finalmodel_showcase2.png", dpi = 300)
+```
+
+We can clearly see that, whether you prioritize meeting core assumptions or accounting for spatial clustering of the response variable, the relationship between corridor strength and vulnerability is always the same and significant. This suggests that corridor strength correlates with decreased climate vulnerability.
+
+We can also see an early dip and then back up, this is likely due to HD short having a much sooner and sharper fall in vulnerability according to strength. We can show this by separating out the plots.
+
+```{r}
+#Simple glm Y~X relationship
+ggplot(testsample_n0, 
+       aes(x = logCrStr, y = log1p(Vulnerability), 
+            colour= Niche)) +
+  geom_point(size= 0.75, alpha= 0.06) + 
+  theme_minimal() +
+  geom_smooth(se= FALSE, method = "glm")+
+  labs(title = "Log Vulnerability vs log Corridor_Strength; top25",
+       x = "log Corridor_Strength",
+       y = "log Vulnerability")
+
+#and do the same with our model which accoutns for covairaites, random effects and spatial structure
+
+dummytestsample <- testsample_n0
+
+GLMM2predictions <- predict(glmm2_test, type = "response")
+dummytestsample$GLMM2predictions_values <- as.numeric(GLMM2predictions)
+
+#plot against log vulnerability
+ggplot(data = dummytestsample, 
+       aes(x = logCrStr, y = log1p(Vulnerability)), 
+            colour= Species) +
+  geom_point(size= 0.75, alpha= 0.08) +
+  geom_smooth(data = subset(dummytestsample, Niche == "HD"),
+              aes(y = log(GLMM2predictions_values)), 
+              color = "orange1", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "HG"),
+              aes(y = log(GLMM2predictions_values)), 
+              color = "indianred2", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "HW"),
+              aes(y = log(GLMM2predictions_values)), 
+              color = "firebrick4", size = 1.5, se = FALSE) +
+   geom_smooth(data = subset(dummytestsample, Niche == "LD"),
+              aes(y = log(GLMM2predictions_values)), 
+              color = "lightblue1", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "LG"),
+              aes(y = log(GLMM2predictions_values)), 
+              color = "blue", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "LW"),
+              aes(y = log(GLMM2predictions_values)), 
+              color = "mediumpurple1", size = 1.5, se = FALSE) +
+  labs(x = "Log Corridor Strength", y = "log Climate Vulnerability", 
+       title = "GLMM2 predictions") +
+  theme_minimal() +
+  coord_cartesian(ylim=c(7, 10))
+
+#plot the overall model
+ggplot(data = dummytestsample, 
+       aes(x = logCrStr, y = log1p(Vulnerability))) +
+  geom_point(size= 0.75, alpha= 0.08) +
+  geom_smooth(aes(y = log(GLMM2predictions_values)), color = "black", size = 2) +
+  labs(x = "Log Corridor Strength", y = "log Climate Vulnerability", 
+       title = "GLMM2 predictions") +
+  theme_minimal() +
+  coord_cartesian(ylim=c(7, 10))
+
+#plot against vulnerbaility
+ggplot(data = dummytestsample, 
+       aes(x = logCrStr, y = Vulnerability), 
+            colour= Species) +
+  geom_point(size= 0.75, alpha= 0.08) +
+  geom_smooth(data = subset(dummytestsample, Niche == "HD"),
+              aes(y = GLMM2predictions_values), 
+              color = "orange1", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "HG"),
+              aes(y = GLMM2predictions_values), 
+              color = "indianred2", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "HW"),
+              aes(y = GLMM2predictions_values), 
+              color = "firebrick4", size = 1.5, se = FALSE) +
+   geom_smooth(data = subset(dummytestsample, Niche == "LD"),
+              aes(y = GLMM2predictions_values), 
+              color = "lightblue1", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "LG"),
+              aes(y = GLMM2predictions_values), 
+              color = "blue", size = 1.5, se = FALSE) +
+    geom_smooth(data = subset(dummytestsample, Niche == "LW"),
+              aes(y = GLMM2predictions_values), 
+              color = "mediumpurple1", size = 1.5, se = FALSE) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM2 predictions") +
+  theme_minimal() +
+  coord_cartesian(ylim=c(0, 35000))
+
+```
+
+As a result, we should emulate the two sides of this spectrum using the larger origonal sample which meets the preliminary power analysis. This will still take a lot of computing power, so we will make the sample as small as we dare.
+
+#### 11) Scaling Up
+
+From the power analysis, we saw that n only needs to be 77 per factor. The first hurdle used 200 (n= 7,200). The test sample used 50. Because this part is highly computationally demanding for my laptop, I will use 100 (n= 3,600). Considering that we have already established that the future scenarios are never significant in the models, this actually gives an effect sample size of the smallest factor level (species) of 300 - well in excess of what we need.
+
+This will be a subsample from the 7,200 used in part 1, meaning we are always working with the same overall dataset. You can make your own, or load the sample I used:
+
+```{r}
+#make a temporary without 0s
+#sample_n200_t25_n0 <- sample_n200_t25[sample_n200_t25$Vulnerability != 0, ]
+
+#halve the same size
+#sample_n100_t25_n0 <- sample_n200_t25_n0 %>% group_by(Species, FutureScenario) %>% sample_n(100)
+
+#save
+#write.csv(sample_n100_t25_n0, "C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Dataframes2\\sample_n100_t25_n0_ksApril.csv", row.names = FALSE)
+
+#to replicate my sample:
+sample_n100_t25_n0 <- read.csv("",header= TRUE)
+
+#set factors
+sample_n100_t25_n0$Species <- factor(sample_n100_t25_n0$Species)
+sample_n100_t25_n0$SpecGen <- factor(sample_n100_t25_n0$SpecGen)
+sample_n100_t25_n0$AltitudeNiche <- factor(sample_n100_t25_n0$AltitudeNiche)
+sample_n100_t25_n0$WaterNiche <- factor(sample_n100_t25_n0$WaterNiche)
+sample_n100_t25_n0$Range <- factor(sample_n100_t25_n0$Range)
+sample_n100_t25_n0$FutureScenario <- factor(sample_n100_t25_n0$FutureScenario)
+sample_n100_t25_n0$Niche <- factor(sample_n100_t25_n0$Niche)
+
+head(sample_n100_t25_n0)
+```
+
+We should make a new spatial weights matrix for this sample:
+
+```{r}
+#to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
+#Identify the minimimum threshold distance that will give every observation at least 1 neighbour
+test_Coords_n100 <- cbind(sample_n100_t25_n0$x, sample_n100_t25_n0$y)
+
+#Identify the minimimum threshold distance that will give every observation at least 1 neighbour
+dist_matrix2_n100 <- as.matrix(dist(test_Coords_n100)) 
+
+#save the minimum distance where each has 1 neighbour
+min_distance_n100 <- max(apply(dist_matrix2_n100, 1, function(row) min(row[row > 0]))) 
+# = 
+
+# Define neighbors based on distance (e.g., within a certain distance threshold)
+nb3 <- dnearneigh(test_Coords_n100, d1 = 0, d2 = min_distance_n100) 
+
+# Convert neighbors list to a spatial weights matrix
+lw3 <- nb2listw(nb3, zero.policy = TRUE)
+```
+
+Then construct the GAM1UP:
+
+```{r}
+#full model, pooled spatial term
+#Gam1_n100 <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + s(x,y) + s(Species,bs="re"), family = tw(link = "log"), data = sample_n100_t25_n0)
+
+#save
+#saveRDS(Gam1_n100, "~/ConnectivityData_master/Data/SavedModels2/Gam1_n100.rds")
+Gam1_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam1_n100.rds")
+
+#Return summary and AIC
+summary(Gam1_n100)
+AIC(Gam1_n100)
+
+#view residual fitted:
+DharmaSim_Gam1_n100 <- simulateResiduals(fittedModel = Gam1_n100, 
+                                            plot = F, n= 200)
+DharmaSim_Gam1_n100_BySp = recalculateResiduals(DharmaSim_Gam1_n100, 
+                                         group = sample_n100_t25_n0$Species)
+
+plot(DharmaSim_Gam1_n100)
+plot(DharmaSim_Gam1_n100_BySp)
+
+#to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
+Gam1_n100_deviance <- residuals(Gam1_n100, type = 'deviance')
+moran.mc(Gam1_n100_deviance, listw = lw3, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- sample_n100_t25_n0
+
+# Add residuals to your dummy dataframe
+dummytestsample$Gam1_n100_deviance <- Gam1_n100_deviance
+
+# Calculate the empirical variogram
+variogram_Gam1_n100 <- variogram(Gam1_n100_deviance ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_Gam1_n100, 
+     main = "Variogram of GAM1 Residuals; Y~X + full + re(Species) + pooled(xy)", 
+     pch = 16, col = "blue")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_Gam1_n100 <- fit.variogram(variogram_Gam1_n100, 
+                                 model = vgm(psill = 1, "Exp", 
+                                             range = 500000, 
+                                             nugget = 0.1))
+
+plot(variogram_Gam1_n100, model = variomodel_Gam1_n100, 
+     main = "Variogram of GAM1 Residuals; Y~X + full + re(Species) + pooled(xy)")
+
+nugget_Gam1 <- variomodel_Gam1_n100$psill[1]
+sill_Gam1 <- variomodel_Gam1_n100$psill[1] + variomodel_Gam1_n100$psill[2]
+non_sp_variaiton_Gam1 <- (nugget_Gam1/sill_Gam1)*100
+spatialvariaiton_Gam1 <- 100-non_sp_variaiton_Gam1
+
+#build spatial inference df
+SACtable_Gam1 <- data.frame(Nugget = nugget_Gam1, 
+                        Sill = sill_Gam1, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_Gam1)
+SACtable_Gam1
+
+#build CI conclusion table
+Gam1_summary <- summary(Gam1_n100)
+
+lowerbound_Gam1 <- Gam1_summary$p.coeff["logCrStr"] - 1.96 *    
+                Gam1_summary$se["logCrStr"]
+upperbound_Gam1 <- Gam1_summary$p.coeff["logCrStr"] + 1.96 * 
+                Gam1_summary$se["logCrStr"]
+
+#and put it all in a nice dataframe:
+Gam1_CI <- data.frame(Lower_CI = lowerbound_Gam1, 
+                        Slope = Gam1_summary$p.coeff["logCrStr"], 
+                        Upper_CI = upperbound_Gam1)
+Gam1_CI
+```
+
+AIC = 71,206
+
+Moran I = 0.10 (p\<0.05)
+
+\% Variation that is spatially explained = 54.2%
+
+Relationship = -0.22 \< **-0.192** \< -0.16
+
+construct GAM2UP:
+
+```{r}
+#full model, pooled spatial term
+#Gam2_n100 <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + s(x,y, by = Niche) + s(Species,bs="re"), family = tw(link = "log"), data = sample_n100_t25_n0)
+
+#save
+#saveRDS(Gam2_n100, "~/ConnectivityData_master/Data/SavedModels2/Gam2_n100.rds")
+Gam2_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam2_n100.rds")
+
+#Return summary and AIC
+summary(Gam2_n100)
+AIC(Gam2_n100)
+
+#view residual fitted:
+DharmaSim_Gam2_n100 <- simulateResiduals(fittedModel = Gam2_n100, 
+                                            plot = F)
+DharmaSim_Gam2_n100_BySp = recalculateResiduals(DharmaSim_Gam2_n100, 
+                                         group = sample_n100_t25_n0$Species)
+
+plot(DharmaSim_Gam2_n100)
+plot(DharmaSim_Gam2_n100_BySp)
+
+#to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
+Gam2_n100_deviance <- residuals(Gam2_n100, type = 'deviance')
+moran.mc(Gam2_n100_deviance, listw = lw3, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- sample_n100_t25_n0
+
+# Add residuals to your dummy dataframe
+dummytestsample$Gam2_n100_deviance <- Gam2_n100_deviance
+
+# Calculate the empirical variogram
+variogram_Gam2_n100 <- variogram(Gam2_n100_deviance ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_Gam2_n100, 
+     main = "Variogram of Gam2 Residuals; Y~X + full + re(Species) + Niche(xy)", 
+     pch = 16, col = "blue")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_Gam2_n100 <- fit.variogram(variogram_Gam2_n100, 
+                                 model = vgm(psill = 1, "Exp", 
+                                             range = 500000, 
+                                             nugget = 0.1))
+
+plot(variogram_Gam2_n100, model = variomodel_Gam2_n100, 
+     main = "Variogram of Gam2 Residuals; Y~X + full + re(Species) + Niche(xy)")
+
+nugget_Gam2 <- variomodel_Gam2_n100$psill[1]
+sill_Gam2 <- variomodel_Gam2_n100$psill[1] + variomodel_Gam2_n100$psill[2]
+non_sp_variaiton_Gam2 <- (nugget_Gam2/sill_Gam2)*100
+spatialvariaiton_Gam2 <- 100-non_sp_variaiton_Gam2
+
+#build spatial inference df
+SACtable_Gam2 <- data.frame(Nugget = nugget_Gam2, 
+                        Sill = sill_Gam2, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_Gam2)
+SACtable_Gam2
+
+#build CI conclusion table
+Gam2_summary <- summary(Gam2_n100)
+
+lowerbound_Gam2 <- Gam2_summary$p.coeff["logCrStr"] - 1.96 *    
+                Gam2_summary$se["logCrStr"]
+upperbound_Gam2 <- Gam2_summary$p.coeff["logCrStr"] + 1.96 * 
+                Gam2_summary$se["logCrStr"]
+
+#and put it all in a nice dataframe:
+Gam2_CI <- data.frame(Lower_CI = lowerbound_Gam2, 
+                        Slope = Gam2_summary$p.coeff["logCrStr"], 
+                        Upper_CI = upperbound_Gam2)
+Gam2_CI
+```
+
+AIC = 69,912
+
+Moran I = 0.01 (p\<0.05)
+
+\% Variation that is spatially explained = 45%
+
+Relationship = -0.12 \< **-0.090** \< -0.06
+
+You could also try a tensor product smooth:
+
+```{r}
+Gam3_n100 <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + te(x,y) + s(Species,bs="re"), family = tw(link = "log"), data = sample_n100_t25_n0)
+
+summary(Gam3_n100)
+AIC(Gam3_n100)
+
+#view residual fitted:
+DharmaSim_Gam3_n100 <- simulateResiduals(fittedModel = Gam3_n100, 
+                                            plot = F)
+DharmaSim_Gam3_n100_BySp = recalculateResiduals(DharmaSim_Gam3_n100, 
+                                         group = sample_n100_t25_n0$Species)
+
+plot(DharmaSim_Gam3_n100)
+plot(DharmaSim_Gam3_n100_BySp)
+
+#to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
+Gam3_n100_deviance <- residuals(Gam3_n100, type = 'deviance')
+moran.mc(Gam3_n100_deviance, listw = lw3, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummytestsample <- sample_n100_t25_n0
+
+# Add residuals to your dummy dataframe
+dummytestsample$Gam3_n100_deviance <- Gam3_n100_deviance
+
+# Calculate the empirical variogram
+variogram_Gam3_n100 <- variogram(Gam3_n100_deviance ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummytestsample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_Gam3_n100, 
+     main = "Variogram of Gam3 Residuals; Y~X + full + re(Species) + Niche(xy)", 
+     pch = 16, col = "blue")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_Gam3_n100 <- fit.variogram(variogram_Gam3_n100, 
+                                 model = vgm(psill = 1, "Exp", 
+                                             range = 500000, 
+                                             nugget = 0.1))
+
+plot(variogram_Gam3_n100, model = variomodel_Gam3_n100, 
+     main = "Variogram of Gam3 Residuals; Y~X + full + re(Species) + Niche(xy)")
+
+nugget_Gam3 <- variomodel_Gam3_n100$psill[1]
+sill_Gam3 <- variomodel_Gam3_n100$psill[1] + variomodel_Gam3_n100$psill[2]
+non_sp_variaiton_Gam3 <- (nugget_Gam3/sill_Gam3)*100
+spatialvariaiton_Gam3 <- 100-non_sp_variaiton_Gam3
+
+#build spatial inference df
+SACtable_Gam3 <- data.frame(Nugget = nugget_Gam3, 
+                        Sill = sill_Gam3, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_Gam3)
+SACtable_Gam3
+
+#build CI conclusion table
+Gam3_summary <- summary(Gam3_n100)
+
+lowerbound_Gam3 <- Gam3_summary$p.coeff["logCrStr"] - 1.96 *    
+                Gam3_summary$se["logCrStr"]
+upperbound_Gam3 <- Gam3_summary$p.coeff["logCrStr"] + 1.96 * 
+                Gam3_summary$se["logCrStr"]
+
+#and put it all in a nice dataframe:
+Gam3_CI <- data.frame(Lower_CI = lowerbound_Gam3, 
+                        Slope = Gam3_summary$p.coeff["logCrStr"], 
+                        Upper_CI = upperbound_Gam3)
+Gam3_CI
+```
+
+Construct GLMM1:
+
+```{r}
+#read in model, due to long run times
+glmm1_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Glmm1_n100.rds")
+
+#if you want to set model
+#glmm1_n100 <- fitme(Vulnerability ~ logCrStr + Precipitation + Start_Distance + Habitat_Suitability + Matern(1 | x + y), data = sample_n100_t25_n0, family = Gamma(link = 'log'), init = list(corrPars = list("1" = list(rho = 0.1))), control.HLfit = list(NbThreads = 9)) 
+
+#save
+#saveRDS(glmm1_n100, "~/ConnectivityData_master/Data/SavedModels2/Glmm1_n100.rds")
+
+#Return summary and AIC
+summary(glmm1_n100)
+AIC(glmm1_n100)
+
+#view residual fitted:
+DharmaSim_glmm1_n100 <- simulateResiduals(fittedModel = glmm1_n100,
+                                           plot = F)
+DharmaSim_glmm1_n100_BySp = recalculateResiduals(DharmaSim_glmm1_n100, 
+                                         group = sample_n100_t25_n0$Species)
+
+plot(DharmaSim_glmm1_n100)
+plot(DharmaSim_glmm1_n100_BySp)
+
+#to use the montecarlo moran test, which is more robust,
+#test with 1000 simulations
+glmm1_n100_deviance <- residuals(glmm1_n100, type = 'deviance')
+moran.mc(glmm1_n100_deviance, listw = lw3, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummyn100sample <- sample_n100_t25_n0
+
+# Add residuals to your dummy dataframe
+dummyn100sample$glmm1_residuals <- glmm1_n100_deviance
+
+# Calculate the empirical variogram
+variogram_glmm1_n100 <- variogram(glmm1_n100_deviance ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummyn100sample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_glmm1_n100, 
+     main = "Variogram of glmm1 Residuals; Full + matern(xy, rho= 0.1)", 
+     pch = 1, col = "#1560BD")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_glmm1_n100 <- fit.variogram(variogram_glmm1_n100, 
+                                 model = vgm(psill = 0.25, "Exp", 
+                                             range = 150000, 
+                                             nugget = 0.13))
+
+plot(variogram_glmm1_n100, model = variomodel_glmm1_n100, cutoff = 250000,  
+     main = "Variogram of glmm1 Residuals; Full + matern(xy, rho= 0.1)")
+
+nugget_glmm2_n100 <- variomodel_glmm1_n100$psill[1]
+sill_glmm2_n100 <- variomodel_glmm1_n100$psill[1] + variomodel_glmm1_n100$psill[2]
+non_sp_variaiton_glmm1_n100 <- (nugget_glmm2_n100/sill_glmm2_n100)*100
+spatialvariaiton_glmm1_n100 <- 100-non_sp_variaiton_glmm1_n100
+
+#build df
+SACtable_glmm1_n100 <- data.frame(Nugget = nugget_glmm2_n100, 
+                        Sill = sill_glmm2_n100, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_glmm1_n100)
+SACtable_glmm1_n100
+
+#build CI conclusion table
+fixef_glmm1_n100 <- fixef(glmm1_n100)
+glmm1_n100_summary <- summary(glmm1_n100)
+
+lowerbound_glmm1_n100 <- fixef_glmm1_n100["logCrStr"] - 1.96 *    
+                glmm1_n100_summary$beta_table[2,2]
+upperbound_glmm1_n100 <- fixef_glmm1_n100["logCrStr"] + 1.96 * 
+                glmm1_n100_summary$beta_table[2,2]
+
+#and put it all in a nice dataframe:
+glmm1_n100_CI <- data.frame(Lower_CI = lowerbound_glmm1_n100, 
+                        Slope = fixef_glmm1_n100["logCrStr"], 
+                        Upper_CI = upperbound_glmm1_n100)
+glmm1_n100_CI
+```
+
+AIC = 71,074
+
+Moran I = 0.25 (p\<0.05)
+
+\% Variation that is unaccounted-for Spatial Clustering= 44.7%
+
+Relationship = -0.15 \< **-0.121** \< -0.08
+
+And for the right hand model:
+
+```{r}
+#read in model, due to long run times
+glmm2_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/glmm2_n100.rds")
+
+#if you want to set model
+#glmm2_n100 <- fitme(Vulnerability ~ logCrStr + Precipitation + Start_Distance+ Habitat_Suitability + Matern(1 | x + y), data = sample_n100_t25_n0,family = Gamma(link = 'log'),control.HLfit = list(NbThreads = 9)) 
+
+#save
+#saveRDS(glmm2_n100, "~/ConnectivityData_master/Data/SavedModels2/glmm2_n100.rds")
+
+#Return summary and AIC
+summary(glmm2_n100)
+AIC(glmm2_n100)
+
+#view residual fitted:
+DharmaSim_glmm2_n100 <- simulateResiduals(fittedModel = glmm2_n100,
+                                           plot = F)
+DharmaSim_glmm2_n100_BySp = recalculateResiduals(DharmaSim_glmm2_n100, 
+                                         group = sample_n100_t25_n0$Species)
+
+plot(DharmaSim_glmm2_n100)
+plot(DharmaSim_glmm2_n100_BySp)
+
+#to use the montecarlo moran test, which is more robust,
+#test with 1000 simulations
+glmm2_n100_deviance <- residuals(glmm2_n100, type = 'deviance')
+moran.mc(glmm2_n100_deviance, listw = lw3, nsim = 999, alternative = "greater")
+
+#plot variogram 
+dummyn100sample <- sample_n100_t25_n0
+
+# Add residuals to your dummy dataframe
+dummyn100sample$glmm2_residuals <- glmm2_n100_deviance
+
+# Calculate the empirical variogram
+variogram_glmm2_n100 <- variogram(glmm2_n100_deviance ~ 1, 
+                                 locations = ~x + y,
+                                 data = dummyn100sample,
+                              cutoff= 250000, width= 250000/30)
+
+plot(variogram_glmm2_n100, 
+     main = "Variogram of glmm2 Residuals; Full + matern(xy, rho= auto)", 
+     pch = 1, col = "#1560BD")
+
+#extract nugget and sill
+#approcimate the nugget by getting the semivairance at the lowest distance bin
+variomodel_glmm2_n100 <- fit.variogram(variogram_glmm2_n100, 
+                                 model = vgm(psill = 0.35, "Exp", 
+                                             range = 10000, 
+                                             nugget = 0.35))
+
+plot(variogram_glmm2_n100, model = variomodel_glmm2_n100, cutoff = 250000,  
+     main = "Variogram of glmm2 Residuals; Full + matern(xy, rho= auto)")
+
+nugget_glmm2_n100 <- variomodel_glmm2_n100$psill[1]
+sill_glmm2_n100 <- variomodel_glmm2_n100$psill[1] + variomodel_glmm2_n100$psill[2]
+non_sp_variaiton_glmm2_n100 <- (nugget_glmm2_n100/sill_glmm2_n100)*100
+spatialvariaiton_glmm2_n100 <- 100-non_sp_variaiton_glmm2_n100
+
+#build df
+SACtable_glmm2_n100 <- data.frame(Nugget = nugget_glmm2_n100, 
+                        Sill = sill_glmm2_n100, 
+                        Percentage_Variatin_Spatial = spatialvariaiton_glmm2_n100)
+SACtable_glmm2_n100
+
+#build CI conclusion table
+fixef_glmm2_n100 <- fixef(glmm2_n100)
+glmm2_n100_summary <- summary(glmm2_n100)
+
+lowerbound_glmm2_n100 <- fixef_glmm2_n100["logCrStr"] - 1.96 *    
+                glmm2_n100_summary$beta_table[2,2]
+upperbound_glmm2_n100 <- fixef_glmm2_n100["logCrStr"] + 1.96 * 
+                glmm2_n100_summary$beta_table[2,2]
+
+#and put it all in a nice dataframe:
+glmm2_n100_CI <- data.frame(Lower_CI = lowerbound_glmm2_n100, 
+                        Slope = fixef_glmm2_n100["logCrStr"], 
+                        Upper_CI = upperbound_glmm2_n100)
+glmm2_n100_CI
+```
+
+AIC = 69,801
+
+Moran I = 0.002 (p=0.139)
+
+\% Variation that is unaccounted-for Spatial Clustering= \~0%
+
+Relationship = -0.17 \< **-0.139** \< -0.11
+
+The AIC suggests this is the more suitable model, and it successfully accounts for all spatial clustering. Both models agree on the significant negative relationship.
+
+## Conclusions of Analysis
+
+Part one of the hurdle model showed that the probability of undetectable climate vulnerability (resilience higher than the resolution of the metric) increased with corridor strength. This suggests that stronger corridors are more likely to be situated on the strongest future corridors.
+
+```{r}
+#| fig-width: 9
+#| fig-height: 4
+#| fig-align: "center"  # Optional alignment
+
+new_data <- data.frame(
+  Vulnerability = seq(min(sample_n200_t25$Vulnerability), 
+                max(sample_n200_t25$Vulnerability), 
+                length.out = 100),
+  Niche = sample_n200_t25$Niche,
+  Species = sample_n200_t25$Species,
+  x = sample_n200_t25$x,
+  y = sample_n200_t25$y,
+  logCrStr = seq(min(sample_n200_t25$logCrStr), 
+                max(sample_n200_t25$logCrStr), 
+                length.out = 100),
+  Temperature = mean(sample_n200_t25$Temperature),
+  Elevation = mean(sample_n200_t25$Elevation),
+  Precipitation = mean(sample_n200_t25$Precipitation),
+  Habitat_Suitability = mean(sample_n200_t25$Habitat_Suitability),
+  Start_Distance = mean(sample_n200_t25$Start_Distance)
+)
+
+new_data$predicted_resilience <- predict(logit_gam8, newdata = new_data, type = "response")
+
+ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
+  geom_jitter(width = 0.01, height = 0.005, size = 0.75, alpha = 0.08,
+              aes(color = factor(Max_resilience))) + 
+  geom_smooth(aes(y = GAMfinalpredicted_resilience), color = "black", size = 1.1, linetype = "dashed") + 
+  geom_smooth(aes(y = new_data$predicted_resilience), color = "black", size = 1.3) +
+  geom_vline(xintercept = med_logCrStr_0, color = "red", linetype = "dashed") + 
+  geom_vline(xintercept = med_logCrStr_1, color = "blue", linetype = "dashed") +
+  geom_point(aes(x = med_logCrStr_0, y = 0), color = "red", size = 3) +
+  geom_point(aes(x = med_logCrStr_1, y = 1), color = "blue", size = 3) +
+  labs(x = "Log Corridor Strength", y = "Assigned Maximum Climate Resilience") +
+  scale_y_continuous(breaks = c(0, 1), 
+                     labels = c("Vulnerable", "No Detectable Vulnerability")) +
+  theme_light()
+```
+
+This supports the conclusions from the second analysis. On both smaller and larger subsamples, and using a variety of models, there is a robust relationship; stronger corridors correlate with lower climate vulnerability. This supports the ecological hypothesis that stronger corridors, being situated in more ideal niche space, are less likely to be pushed out of dispersal preference due to change. This concept may apply to other kinds of disruption, such as development, as the ecological concept is not dependent on the disruption being climate change.
+
+Although we can view the relationship with no transformations, which seems intuitive:
+
+```{r}
+#make model predicitons
+GLMM2_n200_predictions <- predict(glmm2_n100, type = "response")
+GLMM2_n200_predictions_values <- as.numeric(GLMM2_n200_predictions)
+
+#plot with neither on the log scale
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = Corridor_Strength, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.08) +
+  geom_smooth(aes(y = GLMM2_n200_predictions_values), 
+              color = "black", size = 1.6, se=F) +
+  labs(x = "Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM2 predictions") +
+  theme_minimal() +
+  coord_cartesian(ylim=c(0, 300000), xlim = c(0, 6000))
+```
+
+If we load the original data into R, viewing corridor strength on the natural log scale is actually more intuitive (as the ecological importance of corridors scales exponentially).
+
+```{r}
+knitr::include_graphics("~/ConnectivityData_master/Data/Images/natlog_breaks.png", dpi = 300)
+```
+
+Thus, it is easier to view this relationship on the log scale, and keep in mind the above map. Here the individual effect of corridor strength has been parsed out in green again.
+
+```{r}
+#extract predictions (need to convert glmm matrix to numeric)
+GAM1predictions_n100 <- predict(Gam1_n100, type = "response")
+GAM2predictions_n100 <- predict(Gam1_n100, type = "response")
+GLMM1predictions_n100 <- predict(glmm2_n100, type = "response")
+GLMM1predictions_values_n100 <- as.numeric(GLMM1predictions_n100)
+GLMM2predictions_n100 <- predict(glmm2_n100, type = "response")
+GLMM2predictions_values_n100 <- as.numeric(GLMM2predictions_n100)
+
+#make dataframe with just the X variable effect. The Corridor strength and the spatial structure are kept, but the other variables are just aken as their mean.
+new_data_n100 <- data.frame(
+  Vulnerability = sample_n100_t25_n0$Vulnerability,
+  Corridor_Strength = sample_n100_t25_n0$Corridor_Strength,
+  Niche = sample_n100_t25_n0$Niche,
+  Species = sample_n100_t25_n0$Species,
+  x = mean(sample_n100_t25_n0$x),
+  y = mean(sample_n100_t25_n0$y),
+  logCrStr = sample_n100_t25_n0$logCrStr,
+  Temperature = mean(sample_n100_t25_n0$Temperature),
+  Elevation = mean(sample_n100_t25_n0$Elevation),
+  Precipitation = mean(sample_n100_t25_n0$Precipitation),
+  Habitat_Suitability = mean(sample_n100_t25_n0$Habitat_Suitability),
+  Start_Distance = mean(sample_n200_t25$Start_Distance)
+)
+
+#predict the relationship between just Y~X
+new_data_n100$predicted_vuln <- as.numeric(predict(glmm2_n100, newdata = new_data_n100, type = "response"))
+
+#plot
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.1) +
+  geom_smooth(aes(y = GLMM2predictions_values_n100), 
+              color = "black", size = 0.9, se=F, linetype = "dashed") + 
+    geom_smooth(aes(y = new_data_n100$predicted_vuln), 
+              color = "black", size = 1.6) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM2 on larger sample, predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 30000))
+
+#can do the saem but keep spatial structure as a consideration
+new_data_n100_2 <- data.frame(
+  Vulnerability = sample_n100_t25_n0$Vulnerability,
+  Corridor_Strength = sample_n100_t25_n0$Corridor_Strength,
+  Niche = sample_n100_t25_n0$Niche,
+  Species = sample_n100_t25_n0$Species,
+  x = sample_n100_t25_n0$x,
+  y = sample_n100_t25_n0$y,
+  logCrStr = sample_n100_t25_n0$logCrStr,
+  Temperature = mean(sample_n100_t25_n0$Temperature),
+  Elevation = mean(sample_n100_t25_n0$Elevation),
+  Precipitation = mean(sample_n100_t25_n0$Precipitation),
+  Habitat_Suitability = mean(sample_n100_t25_n0$Habitat_Suitability),
+  Start_Distance = mean(sample_n200_t25$Start_Distance)
+)
+
+#predict the relationship between just Y~X
+new_data_n100_2$predicted_vuln <- as.numeric(predict(glmm2_n100, newdata = new_data_n100_2, type = "response"))
+
+#plot
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.1) +
+  geom_smooth(aes(y = GLMM2predictions_values_n100), 
+              color = "black", size = 0.9, se=F, linetype = "dashed") + 
+  geom_smooth(aes(y = new_data_n100_2$predicted_vuln), 
+              color = "black", size = 1.6, se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM2 on larger sample, predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 30000))
+```
+
+Here I have placed the colours from the map onto the log scale, so that you can see how climate vulnerability is decreasing over the network.
+
+```{r}
+knitr::include_graphics("~/ConnectivityData_master/Data/Images/GLMM2_natbreaks_demo.png", dpi = 300)
+```
+
+We will also want to make the graph spectrum figure:
+
+```{r}
+#extract predictions (need to convert glmm matrix to numeric)
+GAM1predictions_n100 <- predict(Gam1_n100, type = "response")
+GAM2predictions_n100 <- predict(Gam2_n100, type = "response")
+GAM3predictions_n100 <- predict(Gam3_n100, type = "response")
+GAM2predictions_n100 <- predict(Gam2_n100, type = "response")
+GLMM1predictions_n100 <- predict(glmm2_n100, type = "response")
+GLMM1predictions_values_n100 <- as.numeric(GLMM1predictions_n100)
+GLMM2predictions_n100 <- predict(glmm2_n100, type = "response")
+GLMM2predictions_values_n100 <- as.numeric(GLMM2predictions_n100)
+
+#add the predictions for effect only data
+new_data_n100$predicted_vuln_gam1 <- predict(Gam1_n100, newdata = new_data_n100, type = "response")
+new_data_n100$predicted_vuln_gam2 <- predict(Gam2_n100, newdata = new_data_n100, type = "response")
+new_data_n100$predicted_vuln_gam3 <- predict(Gam3_n100, newdata = new_data_n100, type = "response")
+new_data_n100$predicted_vuln_glmm1 <- as.numeric(predict(glmm1_n100, newdata = new_data_n100, type = "response"))
+new_data_n100$predicted_vuln_glmm2 <- as.numeric(predict(glmm2_n100, newdata = new_data_n100, type = "response"))
+
+#plot all together, without confidence interval
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.06) +
+  geom_smooth(aes(y = GAM1predictions_n100), color = "#009933", size = 1, se=F) +  
+  geom_smooth(aes(y = GAM2predictions_n100), color = "#00ff33", size = 1, se=F) +  
+  geom_smooth(aes(y = GLMM1predictions_values_n100), color = "#336633", size = 1,se=F) +
+  geom_smooth(aes(y = GLMM2predictions_values_n100), color = "#33ff99", size = 1,se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "Model Spectrum Predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 25000))
+
+#plot one on each
+
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.05) +
+  geom_smooth(aes(y = GLMM1predictions_values_n100), 
+              color = "#336633", size = 1,  se=F, linetype = "dashed") +
+    geom_smooth(aes(y = new_data_n100$predicted_vuln_glmm1), 
+              color = "#336633", size = 1.6, se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM1 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 25000))
+
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.05) +
+  geom_smooth(aes(y = GAM1predictions_n100), color = "#009933", size = 1,  se=F, linetype = "dashed") +  
+      geom_smooth(aes(y = new_data_n100$predicted_vuln_gam1), 
+              color = "#009933", size = 1.6, se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GAM1 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 25000))
+
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.05) +
+  geom_smooth(aes(y = GAM3predictions_n100), color = "#009933", size = 1,  se=F, linetype = "dashed") +  
+      geom_smooth(aes(y = new_data_n100$predicted_vuln_gam3), 
+              color = "#009933", size = 1.6, se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GAM3 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 700000))
+
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.05) +
+  geom_smooth(aes(y = GAM2predictions_n100), color = "#00ff33", size = 1,  se=F, linetype = "dashed") +  
+        geom_smooth(aes(y = new_data_n100$predicted_vuln_gam2), 
+              color = "#00ff33", size = 1.6, se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GAM2 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 700000))
+
+ggplot(data = sample_n100_t25_n0, 
+       aes(x = logCrStr, y = Vulnerability)) +
+  geom_point(size= 0.75, alpha= 0.05) +
+  geom_smooth(aes(y = GLMM2predictions_values_n100), color = "#33ff99", size = 1, se=F, linetype = "dashed") +
+          geom_smooth(aes(y = new_data_n100$predicted_vuln_glmm2), 
+              color = "#33ff99", size = 1.6, se=F) +
+  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
+       title = "GLMM2 predictions") +
+  theme_light() +
+  coord_cartesian(ylim=c(0, 25000))
+
+
+```
+
+This study was purposefully highly simplified to only 3 inpuit variables defining the species niche. This was to make inference and analysis simpler. (given that this analysis holds) the next step is to see if this correlation holds for natural species. These species will not just have a much more complex fundamnetal niche (abiotic) but also a much more complex and additional realized niche (our study did not consider biotic interactions). Their corridor strength and vulnerability would also be influenced by many other un-simulateable variables for this study, including but not limited to; evolutionary, behavioral or plastic adaptation to climate change, cultural preferences and cultural evolution, and limited information (our study calculated least cost paths assuming that the species knew the value of all pixels, but real species only measure the resistance of the land they can perceive, and will have imperfect perception of it).
+
+With this in mind, in real species the increased number of factors in dispersal choices may decouple the strength-vulnerability relationship we observed. This is because we expect our observation is due to both metrics being linked to the climatic preferences of a species' niche. In real species, although the effect of these climatic preferences will certainly still be present; they will be diluted by the other factors in natural dispersal.
+
+The underlying ecological theory (that stronger corridors represent closer-to-niche landscapes, which are more resilient to climatic shifts) should still apply to some extent. Thus an *en situ* application of the analysis on a diverse set of species would be important to validate that this effect is strong enough in nature to be relevant to practitioners wanting to direct corridor conservation in a changing climate.
+
+Beyond the strength-vulnerability question, we more importantly demonstrate that this new metric lends itself well to testing spatial relationships, as apposed to corridor analysis being limited to global inferences. With a similar method, the data generated by the vulnerability metric could test hypotheses such as; if more heterogeneous habitats have less stable corridors, if one species is expected to be more vulnerable than another, or if protected areas are prioritizing the most susceptible corridors. It could even compare different (non-climate) future scenarios. Such as comparing two infrastructure proposals to see if one causes corridor vulnerability in key habita
+
+```{r}
+save.image(file = "~/ConnectivityData_master/Data/GlobalEnv/march31_globenv.RData")
+```
