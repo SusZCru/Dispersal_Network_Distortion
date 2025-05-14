@@ -9,3 +9,7 @@ editor: visual
 This repository accompanies the dissertation submission of Master's candidate Kristian Suszczenia.
 
 This research creates a set of virtual species, prepares them for corridor modelling software, uses the output corridor networks to design a metric of 'distortion vulnerability' (how networks spatially change their shape and ecological relevance over the landscape), and finally uses this metric to conduct exemplary inferential statistics testing if strong corridors are more resistant to distortion due to their relative proximity to the species' niche.
+
+Download and use the metric using the .gpkx (arcgis sharable toolbox) file in 'Downlaod_the_Metric'. In this file is also template data; a Zone for contiguous Borneo displaying the required format, a baseline (LW_resi_lcc_50000.tif) and a comparison (future: LW_ssp585_y21_resi_lcc_50000.tif).
+
+To follow the research approach itself, it is split into three work packages. First, the creation the virtual species which were used for both metric designing and analysis, then metric design, then our strength analysis.
