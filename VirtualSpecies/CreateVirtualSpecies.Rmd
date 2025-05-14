@@ -1,0 +1,470 @@
+---
+title: "MasterVS_1"
+author: "Kristian Suszczenia"
+date: "2024-11-09"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Install the packages, and library. Library the other dependencies.
+```{r}
+library(virtualspecies)
+library(ade4)
+library(dismo)
+library(rworldmap)
+library(terra)
+library(raster)
+library(dplyr)
+```
+
+
+## 1) Load Input Layers
+
+```{r}
+#Load as SpatRaster
+Elevation <- rast("C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Elev_nibbled_jenk.tif")
+MeanTemp <- rast("C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/BIO1_30s_now.tif")
+AnnualPrec <- rast("C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/BIO12_30s_now.tif")
+
+#Make our objects into a *string of layers*, and set more useful names
+EnvLayers <- c(Elevation, MeanTemp, AnnualPrec)
+names(EnvLayers) <- paste0(c("Elevation", "MeanTemp", "AnnualPrec"))
+EnvLayers
+```
+
+We can see that they are the correct format (SpatRaster), sharing the same extent and resolution, and CRS.
+
+## 2) Initial Suitability functions
+
+For reference. We plan to create 6 species, 2 sets of 3. In each set there will be a Generalist, Wet Specialist, and Dry specialist. There will be a set for High and Low Elevation (so 6 in total).
+
+# The parameters are as follows:
+
+Elevation (range)
+
+Highland = 479 to 3966
+Lowland  = -36 to 478
+
+Temperature (mean)
+
+Highland mean = 23.07 (range; 8-28 sd; 1.573)
+Lowland mean  = 26.73 (range; 22-29, sd; 0.741)
+
+Precipitation (mean)
+
+Highland dry = 2601.74 (range; 1630-3144, sd; 347.097) *HD*
+Highland wet = 3687.75 (range; 3145-4252, sd; 282.767) *HW*
+Highland Gen = 3341.10 (range; 1637-4252, sd; 590.927) *HG*
+
+Lowland dry  = 2496.18 (range; 1572-2957, sd; 314.665) *LD*
+Lowland wet  = 3420.59 (range; 2958-4310, sd; 331.150) *LW*
+Lowland Gen  = 2955.42 (range; 1572-4310, sd; 563.852) *LG*
+
+# Example: Highland DRY Specialist
+
+prefers temperatures of 23.07* (dnorm), precipitation around 2601.74 l/yr (dnorm), and elevations above 479m from sea level (sigmoidal relationship is most appropriate). 
+
+```{r}
+#Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
+ISF_HD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
+                          AnnualPrec = c(fun = 'dnorm', mean = 2601.74, sd = 347.097),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
+
+#These are then combined via a method (default is multiplicative) to create a scale of Habitat suitability scaling 0-1. The combination of functions is the Habitat suitability Index (HSI)
+HSI_HD <- generateSpFromFun(raster.stack = EnvLayers[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HD, 
+                                      plot = TRUE)
+
+#Plot to see how each function is operating in the HSI
+plotResponse(HSI_HD)
+```
+
+Now we can convert this to a probability occurrence (which we will do linearly, so 0.6 means a 60% probability of occurrence). This is much better than the threshold method.
+
+We should use a consistant way to set prevelence; such as 5% of the total land area pixels. This means each VS should end up with the same number of presences (or similar due to R setting the funciton to try and get as close to 5% as possible given the restrictions).
+
+We also need to use a consistant alpha value for the logistic transformation, so that the shape of the probabiltiy of occurence is the same for each VS; meaning the only thing that changes is their preferences.
+
+[DEPRECATED]
+
+```{r}
+Presence_HD <- convertToPA(HSI_HD, 
+                   PA.method = "probability", #here you choose threshold or probability method
+                   prob.method = "linear",
+                   species.prevalence = 0.03, #defines the percentage of land area that will have presence points, thus the software will find the ideal linear relationship that satisfies that
+                   plot = FALSE) 
+
+plotSuitabilityToProba(Presence_HD)
+plot(Presence_HD$pa.raster)
+plot(Presence_HD$suitab.raster)
+```
+
+
+### Used VS:
+
+#Highland DRY Specialist
+
+```{r}
+#Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
+ISF_HD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
+                          AnnualPrec = c(fun = 'dnorm', mean = 2601.74, sd = 347.097),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
+
+#These are then combined via a method (default is multiplicative) to create a scale of Habitat suitability scaling 0-1. The combination of functions is the Habitat suitability Index (HSI)
+HSI_HD <- generateSpFromFun(raster.stack = EnvLayers[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HD, 
+                                      plot = TRUE)
+
+#Plot to see how each function is operating in the HSI
+plotResponse(HSI_HD)
+
+#Convert tor presence points
+Presence_HD <- convertToPA(HSI_HD, 
+                   PA.method = "probability", #here you choose threshold or probability method
+                   prob.method = "linear", a = 1, b = 0, 
+                   plot = FALSE) 
+
+plotSuitabilityToProba(Presence_HD)
+plot(Presence_HD$pa.raster)
+```
+
+
+#Highland WET Specialist
+```{r}
+#Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
+ISF_HW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
+                          AnnualPrec = c(fun = 'dnorm', mean = 3687.75, sd = 282.767),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
+
+#These are then combined via a method (default is multiplicative) to create a scale of Habitat suitability scaling 0-1. The combination of functions is the Habitat suitability Index (HSI)
+HSI_HW <- generateSpFromFun(raster.stack = EnvLayers[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HW, 
+                                      plot = TRUE)
+
+#Plot to see how each function is operating in the HSI
+plotResponse(HSI_HW)
+
+Presence_HW <- convertToPA(HSI_HW, 
+                   PA.method = "probability", 
+                   prob.method = "linear", a = 1, b = 0, 
+                   plot = FALSE) 
+
+plotSuitabilityToProba(Presence_HW)
+plot(Presence_HW$pa.raster)
+```
+
+### High Elevation Generalist
+```{r}
+#Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
+ISF_HG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
+                          AnnualPrec = c(fun = 'dnorm', mean = 3341.1, sd = 590.927),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
+
+#These are then combined via a method (default is multiplicative) to create a scale of Habitat suitability scaling 0-1. The combination of functions is the Habitat suitability Index (HSI)
+HSI_HG <- generateSpFromFun(raster.stack = EnvLayers[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HG, 
+                                      plot = TRUE)
+
+#Plot to see how each function is operating in the HSI
+plotResponse(HSI_HG)
+
+#Convert to presence points
+Presence_HG <- convertToPA(HSI_HG, 
+                   PA.method = "probability", 
+                   prob.method = "linear", a = 1, b = 0, 
+                   plot = FALSE) 
+
+plotSuitabilityToProba(Presence_HG)
+plot(Presence_HG$pa.raster)
+```
+
+### Low Elevation DRY specialist
+```{r}
+#Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
+ISF_LD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
+                          AnnualPrec = c(fun = 'dnorm', mean = 2496.18, sd = 314.665),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = 70))
+
+#These are then combined via a method (default is multiplicative) to create a scale of Habitat suitability scaling 0-1. The combination of functions is the Habitat suitability Index (HSI)
+HSI_LD <- generateSpFromFun(raster.stack = EnvLayers[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LD, 
+                                      plot = TRUE)
+
+#Plot to see how each function is operating in the HSI
+plotResponse(HSI_LD)
+
+#Convert to presence points
+#Or logistic?
+Presence_LD <- convertToPA(HSI_LD, 
+                   PA.method = "probability", 
+                   prob.method = "logistic", alpha = -0.08, 
+                   species.prevalence = 0.1,
+                   plot = FALSE) 
+
+plotSuitabilityToProba(Presence_LD)
+plot(Presence_LD$pa.raster)
+```
+
+### Low Elevation WET specialist
+```{r}
+#Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
+ISF_LW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
+                          AnnualPrec = c(fun = 'dnorm', mean = 3420.59, sd = 331.15),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = 70))
+
+#These are then combined via a method (default is multiplicative) to create a scale of Habitat suitability scaling 0-1. The combination of functions is the Habitat suitability Index (HSI)
+HSI_LW <- generateSpFromFun(raster.stack = EnvLayers[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LW, 
+                                      plot = TRUE)
+
+#Plot to see how each function is operating in the HSI
+plotResponse(HSI_LW)
+
+#Convert to presence points
+#or logistic
+Presence_LW <- convertToPA(HSI_LW, 
+                   PA.method = "probability", 
+                   prob.method = "logistic", alpha = -0.08, 
+                   species.prevalence = 0.1,
+                   plot = FALSE) 
+
+plotSuitabilityToProba(Presence_LW)
+plot(Presence_LW$pa.raster)
+```
+
+
+## Low Elevation Generalist
+```{r}
+#Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
+ISF_LG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
+                          AnnualPrec = c(fun = 'dnorm', mean = 2955.42, sd = 563.852),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = 70))
+
+#These are then combined via a method (default is multiplicative) to create a scale of Habitat suitability scaling 0-1. The combination of functions is the Habitat suitability Index (HSI)
+HSI_LG <- generateSpFromFun(raster.stack = EnvLayers[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LG, 
+                                      plot = TRUE)
+
+#Plot to see how each function is operating in the HSI
+plotResponse(HSI_LG)
+
+#Convert to presence points
+#Or logsitic?
+Presence_LG <- convertToPA(HSI_LG, 
+                   PA.method = "probability", 
+                   prob.method = "logistic", alpha = -0.08, 
+                   species.prevalence = 0.1,
+                   plot = FALSE) 
+
+plotSuitabilityToProba(Presence_LG)
+plot(Presence_LG$pa.raster)
+```
+################################################################################
+
+### Sampling Presence/Absence
+
+From the True Presence data, we can sample what will ultimately be the PA which can make up our habitat suitability model. 
+
+# HD
+
+```{r}
+SampledPresence_HD <- sampleOccurrences(Presence_HD,
+                            n = 5500, # The number of points to sample
+                            type = "presence-absence",
+                            sample.prevalence = 500/5500)
+
+```
+
+# HW
+```{r}
+SampledPresence_HW <- sampleOccurrences(Presence_HW,
+                            n = 5500, # The number of points to sample
+                            type = "presence-absence",
+                            sample.prevalence = 500/5500)
+
+```
+
+# HG
+```{r}
+SampledPresence_HG <- sampleOccurrences(Presence_HG,
+                            n = 5500, # The number of points to sample
+                            type = "presence-absence",
+                            sample.prevalence = 500/5500)
+
+```
+
+# LD
+```{r}
+SampledPresence_LD <- sampleOccurrences(Presence_LD,
+                            n = 5500, # The number of points to sample
+                            type = "presence-absence",
+                            sample.prevalence = 500/5500)
+
+```
+
+# LW
+```{r}
+SampledPresence_LW <- sampleOccurrences(Presence_LW,
+                            n = 5500, # The number of points to sample
+                            type = "presence-absence",
+                            sample.prevalence = 500/5500)
+
+```
+
+# LG
+```{r}
+SampledPresence_LG <- sampleOccurrences(Presence_LG,
+                            n = 5500, # The number of points to sample
+                            type = "presence-absence",
+                            sample.prevalence = 500/5500)
+
+SampledPresence_LG
+
+```
+
+###############################################################################
+
+### Saving for Export to ARCGIS
+
+This is just to showcase the process. The True Habitat suitability is transformed into a smaller population distribution liklihood (which puts them in the most suitable places, with comparable populations sizes), and these pixel probabilities are used to radnomly draw a Presence Absence True Population. 
+```{r}
+plot(Presence_LW$suitab.raster)
+plot(Presence_LW$probability.of.occurrence)
+plot(Presence_LW$pa.raster)
+```
+We will save the VS ('Presence_X') as this contains the habitat suitability raster and the true presence/absence. 
+We will also save the suitability raster itself, separately, and the true presence absence, as TIFs.
+Then we will save the sampled presence points as a csv.
+
+```{r}
+
+#HD
+save(Presence_HD, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_HD1")
+
+writeRaster(Presence_HD$suitab.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_HD1.tif")
+writeRaster(Presence_HD$pa.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_HD1.tif")
+write.csv(SampledPresence_HD$sample.points, 
+          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_HD1.csv")
+
+#HW
+save(Presence_HW, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_HW1")
+
+writeRaster(Presence_HW$suitab.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_HW1.tif")
+writeRaster(Presence_HW$pa.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_HW1.tif")
+write.csv(SampledPresence_HW$sample.points, 
+          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_HW1.csv")
+
+#HG
+
+save(Presence_HG, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_HG1")
+
+writeRaster(Presence_HG$suitab.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_HG1.tif")
+writeRaster(Presence_HG$pa.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_HG1.tif")
+write.csv(SampledPresence_HG$sample.points, 
+          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_HG1.csv")
+
+#LD
+save(Presence_LD, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_LD1")
+
+writeRaster(Presence_LD$suitab.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_LD1.tif")
+writeRaster(Presence_LD$pa.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_LD1.tif")
+write.csv(SampledPresence_LD$sample.points, 
+          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_LD1.csv")
+
+#LW
+save(Presence_LW, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_LW1")
+
+writeRaster(Presence_LW$suitab.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_LW1.tif")
+writeRaster(Presence_LW$pa.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_LW1.tif")
+write.csv(SampledPresence_LW$sample.points, 
+          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_LW1.csv")
+
+#LG
+save(Presence_LG, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_LG1")
+
+writeRaster(Presence_LG$suitab.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_LG1.tif")
+writeRaster(Presence_LG$pa.raster, 
+            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_LG1.tif")
+write.csv(SampledPresence_LG$sample.points, 
+          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_LG1.csv")
+```
+
+### Taking notes
+
+We can also count the population size, for documentation
+```{r}
+#HD
+HD_values <- as.data.frame(na.omit(values(Presence_HD$pa.raster)))
+HD_values <- HD_values %>% rename_at('VSP suitability', ~'PA')
+HD_values
+
+nrow(HD_values) # Number of pixels overall = 858,655
+sum(HD_values$PA == 1) # HD presence pixels = 25,988
+
+#HG
+HG_values <- as.data.frame(na.omit(values(Presence_HG$pa.raster)))
+HG_values <- HG_values %>% rename_at('VSP suitability', ~'PA')
+HG_values
+
+nrow(HG_values)
+sum(HG_values$PA == 1) # HG presence pixels = 79,681
+
+#HW
+HW_values <- as.data.frame(na.omit(values(Presence_HW$pa.raster)))
+HW_values <- HW_values %>% rename_at('VSP suitability', ~'PA')
+HW_values
+
+nrow(HW_values)
+sum(HW_values$PA == 1) # HW presence pixels = 55,894
+
+#LD
+LD_values <- as.data.frame(na.omit(values(Presence_LD$pa.raster)))
+LD_values <- LD_values %>% rename_at('lyr.1', ~'PA')
+LD_values
+
+nrow(LD_values)
+sum(LD_values$PA == 1) # LD presence pixels = 86,638
+
+#LG
+LG_values <- as.data.frame(na.omit(values(Presence_LG$pa.raster)))
+LG_values <- LG_values %>% rename_at('lyr.1', ~'PA')
+LG_values
+
+nrow(LG_values)
+sum(LG_values$PA == 1) # LG presence pixels = 85,777
+
+#LW
+LW_values <- as.data.frame(na.omit(values(Presence_LW$pa.raster)))
+LW_values <- LW_values %>% rename_at('lyr.1', ~'PA')
+LW_values
+
+nrow(LW_values)
+sum(LW_values$PA == 1) # LG presence pixels = 85,818
+
+```
+
+
+###############################################################################
+
+
+
+
+
+
+
+
+

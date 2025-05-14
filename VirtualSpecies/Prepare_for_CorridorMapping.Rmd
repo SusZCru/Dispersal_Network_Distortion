@@ -1,0 +1,541 @@
+---
+title: "Cola_dataprepping"
+author: "Kristian Suszczenia"
+date: "2024-11-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Example with HD
+
+1) Creating Projected Coords:
+
+Before this, I first imported the corrdintaes (PXY_HD.csv, in the Saved2 and Ponly subfolder) to ARCGIS via coordinate conversion, on a WGS 84 map (unprojected), and then exported that as a shape file. These should all be saved in one place, shape files come with multiple files that it links to.
+
+I load that shapefile here
+```{r}
+#Load unprojected shapefile
+HD_unproj_coord <- vect("~/ArcGIS/Projects/ConnectAnalysis_present_unprojected/unprojectedcoords.shp")
+
+#check crs
+crs(HD_unproj_coord) #it is in the wrong crs
+
+#So save them in sf package
+#use the old projection code just to set it correctly
+HD_unproj_cooord_sf <- st_as_sf(HD_unproj_coord, coords = c("x", "y"), crs = 4326) 
+
+#use the sf transform function to ADD coords of the new projection, using the ESRI code for albers conical SEA
+HD_coord_proj_sf <- st_transform(HD_unproj_cooord_sf, crs = "ESRI:102028")
+crs(HD_coord_proj_sf)
+
+#Extract the new cooridntaes from the geometry column
+HD_proj_coords <- st_coordinates(st_geometry(HD_coord_proj_sf))
+
+#Convert the coordinates to a data frame
+HD_proj_coords_df <- as.data.frame(HD_proj_coords)
+
+
+#save
+write.csv(HD_proj_coords_df, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HD/HD_coords_proj.csv", row.names = FALSE)
+
+#Go into this folder, open and check the data is as needed (X and Y headings), then change the extension to .XY
+
+####
+
+#We can also save it as a shapefile by opening this csv in R into an Albers map and using coordinate conversion to save as .shp.
+#Save as shp file, this is cola ready too!
+st_write(HD_coord_proj_sf, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HD/HD_coords_proj.shp")
+```
+
+
+2) Creating the projected Raster
+
+This is more simple, all that is needed is the perfect suitability raster from the VS r session, and the rest can be done here in R aside from setting equal dimensions.
+
+```{r}
+#library(spatialEco)
+
+#Load the new projected HD HSI raster
+HD_perfectHSI <- rast("C:\\Users\\shil5756\\Documents\\Directories\\R_directories\\Masters_VS_borneo\\Saved2\\Saved_realhabitatsuitability\\Suitability_HD1.tif")
+
+#Project it onto our desired Albers projection
+HD_HSI_proj <- project(HD_perfectHSI, crs("ESRI:102028"))
+
+#Invert the projected raster linearly
+HD_invert_proj <- raster.invert(HD_HSI_proj)
+
+#Then stretch to make the resistance raster
+HD_resi_proj <- raster.transformation(HD_invert_proj, trans = "stretch", smin=1, smax= 99)
+
+#make sure the projection has stayed
+crs(HD_resi_proj) # it has "PROJCRS[\"Asia_South_Albers_Equal_Area_Conic\",\n 
+
+#Check if x and Y cell dimensions are equal
+res(HD_resi_proj) #they seem to be, but in fact are off by a small amount (due to how computers use floating point calculations)
+
+#Thus we need to save them to do the final part in R, the tool 'Resample' (method bilinear) can be used to set the exact resolution (same as cell dimesnions). Load them into a map with the correct Albers project. Then Resample to 925x925.
+#save as TIFF to be taken to ARCGIS
+writeRaster(HD_resi_proj, 
+            "~/ArcGIS/Projects/Cola_dataprep_WGS84/InputRasters/HD_projectedResi.tif")
+
+#Once done, 
+
+#Then we load this bakc into R to restretch 
+HD_resi_resample <- rast("~/ArcGIS/Projects/Cola_dataprep_WGS84/ResampledRasters/HD_projectedResi_Resample.tif")
+HD_resi_resample_stretch <- raster.transformation(HD_resi_resample, trans = "stretch", smin=1, smax= 99)
+plot(HD_resi_resample_stretch)
+
+#and then finally save as an tif, by just using the .tif extension
+writeRaster(HD_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HD/HD_resi.tif")
+#and as asc
+writeRaster(HD_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HD/HD_resi.ASC")
+
+#however, this gives the asc with NAN nodata values, if you want -9999, you have to open the riff in R and specify it in the tool Raster to ASCII
+```
+
+This creates your cola ready folder with the projected coords (csv, XY, and shp. files) and the projected resistance (tif for Cola, and ASC9999 for raw UNICOR)
+
+## 2) HG
+
+1) Creating Projected Coords:
+
+Before this, I first imported the corrdintaes (PXY_HD.csv, in the Saved2 and Ponly subfolder) to ARCGIS via coordinate conversion, on a WGS 84 map (unprojected), and then exported that as a shape file. These should all be saved in one place, shape files come with multiple files that it links to.
+
+I load that shapefile here
+```{r}
+#Load unprojected shapefile
+HG_unproj_coord <- vect("~/ArcGIS/Projects/Cola_dataprep_WGS84/Outputcoords/HWunproj_coord.shp")
+
+#check crs
+crs(HG_unproj_coord) #it is in the wrong crs
+
+#So save them in sf package
+#use the old projection code just to set it correctly
+HG_unproj_cooord_sf <- st_as_sf(HG_unproj_coord, coords = c("x", "y"), crs = 4326) 
+
+#use the sf transform function to ADD coords of the new projection, using the ESRI code for albers conical SEA
+HG_coord_proj_sf <- st_transform(HG_unproj_cooord_sf, crs = "ESRI:102028")
+crs(HG_coord_proj_sf)
+
+#Extract the new cooridntaes from the geometry column
+HG_proj_coords <- st_coordinates(st_geometry(HG_coord_proj_sf))
+
+#Convert the coordinates to a data frame
+HG_proj_coords_df <- as.data.frame(HG_proj_coords)
+
+#save
+write.csv(HG_proj_coords_df, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HG/HG_coords_proj.csv", row.names = FALSE)
+
+#Go into this folder, open and check the data is as needed (X and Y headings), then change the extension to .XY
+
+####
+
+#We can also save it as a shapefile by opening this csv in R into an Albers map and using coordinate conversion to save as .shp.
+#Save as shp file, this is cola ready too!
+st_write(HG_coord_proj_sf, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HG/HG_coords_proj.shp")
+```
+
+2) Creating the projected Raster
+
+```{r}
+#library(spatialEco)
+
+#Load the new projected HD HSI raster
+HG_perfectHSI <- rast("C:\\Users\\shil5756\\Documents\\Directories\\R_directories\\Masters_VS_borneo\\Saved2\\Saved_realhabitatsuitability\\Suitability_HG1.tif")
+
+#Project it onto our desired Albers projection
+HG_HSI_proj <- project(HG_perfectHSI, crs("ESRI:102028"))
+
+#Invert the projected raster linearly
+HG_invert_proj <- raster.invert(HG_HSI_proj)
+
+#Then stretch to make the resistance raster
+HG_resi_proj <- raster.transformation(HG_invert_proj, trans = "stretch", smin=1, smax= 99)
+
+#make sure the projection has stayed
+crs(HG_resi_proj) # it has "PROJCRS[\"Asia_South_Albers_Equal_Area_Conic\",\n 
+
+#Check if x and Y cell dimensions are equal
+res(HG_resi_proj) #they seem to be, but in fact are off by a small amount (due to how computers use floating point calculations)
+
+#Thus we need to save them to do the final part in R, the tool 'Resample' (method bilinear) can be used to set the exact resolution (same as cell dimesnions). Load them into a map with the correct Albers project. Then Resample to 925x925.
+#save as TIFF to be taken to ARCGIS
+writeRaster(HG_resi_proj, 
+            "~/ArcGIS/Projects/Cola_dataprep_WGS84/InputRasters/HG_projectedResi.tif")
+
+#Once done, 
+
+#Then we load this bakc into R to restretch 
+HG_resi_resample <- rast("~/ArcGIS/Projects/Cola_dataprep_WGS84/ResampledRasters/HG_projectedResi_Resample.tif")
+HG_resi_resample_stretch <- raster.transformation(HG_resi_resample, trans = "stretch", smin=1, smax= 99)
+plot(HG_resi_resample_stretch)
+
+#and then finally save as an tif, by just using the .tif extension
+writeRaster(HG_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HG/HG_resi.tif")
+#and as asc
+writeRaster(HG_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HG/HG_resi.ASC")
+
+#however, this gives the asc with NAN nodata values, if you want -9999, you have to open the riff in R and specify it in the tool Raster to ASCII
+```
+
+This creates your cola ready folder with the projected coords (csv, XY, and shp. files) and the projected resistance (tif for Cola, and ASC9999 for raw UNICOR)
+
+
+## 3) HW
+
+1) Creating Projected Coords:
+
+Before this, I first imported the corrdintaes (PXY_HD.csv, in the Saved2 and Ponly subfolder) to ARCGIS via coordinate conversion, on a WGS 84 map (unprojected), and then exported that as a shape file. These should all be saved in one place, shape files come with multiple files that it links to.
+
+I load that shapefile here
+```{r}
+#Load unprojected shapefile
+HW_unproj_coord <- vect("~/ArcGIS/Projects/Cola_dataprep_WGS84/Outputcoords/HWunproj_coord.shp")
+
+#check crs
+crs(HW_unproj_coord) #it is in the wrong crs
+
+#So save them in sf package
+#use the old projection code just to set it correctly
+HW_unproj_cooord_sf <- st_as_sf(HW_unproj_coord, coords = c("x", "y"), crs = 4326) 
+
+#use the sf transform function to ADD coords of the new projection, using the ESRI code for albers conical SEA
+HW_coord_proj_sf <- st_transform(HW_unproj_cooord_sf, crs = "ESRI:102028")
+crs(HW_coord_proj_sf)
+
+#Extract the new cooridntaes from the geometry column
+HW_proj_coords <- st_coordinates(st_geometry(HW_coord_proj_sf))
+
+#Convert the coordinates to a data frame
+HW_proj_coords_df <- as.data.frame(HW_proj_coords)
+
+#save
+write.csv(HW_proj_coords_df, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HW/HW_coords_proj.csv", row.names = FALSE)
+
+#Go into this folder, open and check the data is as needed (X and Y headings), then change the extension to .XY
+
+####
+
+#We can also save it as a shapefile by opening this csv in R into an Albers map and using coordinate conversion to save as .shp.
+#Save as shp file, this is cola ready too!
+st_write(HW_coord_proj_sf, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HW/HW_coords_proj.shp")
+```
+
+2) Creating the projected Raster
+
+```{r}
+#library(spatialEco)
+
+#Load the new projected HD HSI raster
+HW_perfectHSI <- rast("C:\\Users\\shil5756\\Documents\\Directories\\R_directories\\Masters_VS_borneo\\Saved2\\Saved_realhabitatsuitability\\Suitability_HW1.tif")
+
+#Project it onto our desired Albers projection
+HW_HSI_proj <- project(HW_perfectHSI, crs("ESRI:102028"))
+
+#Invert the projected raster linearly
+HW_invert_proj <- raster.invert(HW_HSI_proj)
+
+#Then stretch to make the resistance raster
+HW_resi_proj <- raster.transformation(HW_invert_proj, trans = "stretch", smin=1, smax= 99)
+
+#make sure the projection has stayed
+crs(HW_resi_proj) # it has "PROJCRS[\"Asia_South_Albers_Equal_Area_Conic\",\n 
+
+#Check if x and Y cell dimensions are equal
+res(HW_resi_proj) #they seem to be, but in fact are off by a small amount (due to how computers use floating point calculations)
+
+#Thus we need to save them to do the final part in R, the tool 'Resample' (method bilinear) can be used to set the exact resolution (same as cell dimesnions). Load them into a map with the correct Albers project. Then Resample to 925x925.
+#save as TIFF to be taken to ARCGIS
+writeRaster(HW_resi_proj, 
+            "~/ArcGIS/Projects/Cola_dataprep_WGS84/InputRasters/HW_projectedResi.tif")
+
+#Once done, 
+
+#Then we load this bakc into R to restretch 
+HW_resi_resample <- rast("~/ArcGIS/Projects/Cola_dataprep_WGS84/ResampledRasters/HW_projectedResi_Resample.tif")
+HW_resi_resample_stretch <- raster.transformation(HW_resi_resample, trans = "stretch", smin=1, smax= 99)
+plot(HW_resi_resample_stretch)
+
+#and then finally save as an tif, by just using the .tif extension
+writeRaster(HW_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HW/HW_resi.tif")
+#and as asc
+writeRaster(HW_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/HW/HW_resi.ASC")
+
+#however, this gives the asc with NAN nodata values, if you want -9999, you have to open the riff in R and specify it in the tool Raster to ASCII
+```
+
+This creates your cola ready folder with the projected coords (csv, XY, and shp. files) and the projected resistance (tif for Cola, and ASC9999 for raw UNICOR)
+
+## 4) LD
+
+1) Creating Projected Coords:
+
+Before this, I first imported the corrdintaes (PXY_HD.csv, in the Saved2 and Ponly subfolder) to ARCGIS via coordinate conversion, on a WGS 84 map (unprojected), and then exported that as a shape file. These should all be saved in one place, shape files come with multiple files that it links to.
+
+I load that shapefile here
+```{r}
+#Load unprojected shapefile
+LD_unproj_coord <- vect("~/ArcGIS/Projects/Cola_dataprep_WGS84/Outputcoords/LDunproj_coord.shp")
+
+#check crs
+crs(LD_unproj_coord) #it is in the wrong crs
+
+#So save them in sf package
+#use the old projection code just to set it correctly
+LD_unproj_cooord_sf <- st_as_sf(LD_unproj_coord, coords = c("x", "y"), crs = 4326) 
+
+#use the sf transform function to ADD coords of the new projection, using the ESRI code for albers conical SEA
+LD_coord_proj_sf <- st_transform(LD_unproj_cooord_sf, crs = "ESRI:102028")
+crs(LD_coord_proj_sf)
+
+#Extract the new cooridntaes from the geometry column
+LD_proj_coords <- st_coordinates(st_geometry(LD_coord_proj_sf))
+
+#Convert the coordinates to a data frame
+LD_proj_coords_df <- as.data.frame(LD_proj_coords)
+
+#save
+write.csv(LD_proj_coords_df, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LD/LD_coords_proj.csv", row.names = FALSE)
+
+#Go into this folder, open and check the data is as needed (X and Y headings), then change the extension to .XY
+
+####
+
+#We can also save it as a shapefile by opening this csv in R into an Albers map and using coordinate conversion to save as .shp.
+#Save as shp file, this is cola ready too!
+st_write(LD_coord_proj_sf, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LD/LD_coords_proj.shp")
+```
+
+2) Creating the projected Raster
+
+```{r}
+#library(spatialEco)
+
+#Load the new projected HD HSI raster
+LD_perfectHSI <- rast("C:\\Users\\shil5756\\Documents\\Directories\\R_directories\\Masters_VS_borneo\\Saved2\\Saved_realhabitatsuitability\\Suitability_LD1.tif")
+
+#Project it onto our desired Albers projection
+LD_HSI_proj <- project(LD_perfectHSI, crs("ESRI:102028"))
+
+#Invert the projected raster linearly
+LD_invert_proj <- raster.invert(LD_HSI_proj)
+
+#Then stretch to make the resistance raster
+LD_resi_proj <- raster.transformation(LD_invert_proj, trans = "stretch", smin=1, smax= 99)
+
+#make sure the projection has stayed
+crs(LD_resi_proj) # it has "PROJCRS[\"Asia_South_Albers_Equal_Area_Conic\",\n 
+
+#Check if x and Y cell dimensions are equal
+res(LD_resi_proj) #they seem to be, but in fact are off by a small amount (due to how computers use floating point calculations)
+
+#Thus we need to save them to do the final part in R, the tool 'Resample' (method bilinear) can be used to set the exact resolution (same as cell dimesnions). Load them into a map with the correct Albers project. Then Resample to 925x925.
+#save as TIFF to be taken to ARCGIS
+writeRaster(LD_resi_proj, 
+            "~/ArcGIS/Projects/Cola_dataprep_WGS84/InputRasters/LD_projectedResi.tif")
+
+#Once done, 
+
+#Then we load this bakc into R to restretch 
+LD_resi_resample <- rast("~/ArcGIS/Projects/Cola_dataprep_WGS84/ResampledRasters/LD_projectedResi_Resample.tif")
+LD_resi_resample_stretch <- raster.transformation(LD_resi_resample, trans = "stretch", smin=1, smax= 99)
+plot(LD_resi_resample_stretch)
+
+#and then finally save as an tif, by just using the .tif extension
+writeRaster(LD_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LD/LD_resi.tif")
+#and as asc
+writeRaster(LD_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LD/LD_resi.ASC")
+
+#however, this gives the asc with NAN nodata values, if you want -9999, you have to open the riff in R and specify it in the tool Raster to ASCII
+```
+
+This creates your cola ready folder with the projected coords (csv, XY, and shp. files) and the projected resistance (tif for Cola, and ASC9999 for raw UNICOR)
+
+## 5) LG
+
+1) Creating Projected Coords:
+
+Before this, I first imported the corrdintaes (PXY_HD.csv, in the Saved2 and Ponly subfolder) to ARCGIS via coordinate conversion, on a WGS 84 map (unprojected), and then exported that as a shape file. These should all be saved in one place, shape files come with multiple files that it links to.
+
+I load that shapefile here
+```{r}
+#Load unprojected shapefile
+LG_unproj_coord <- vect("~/ArcGIS/Projects/Cola_dataprep_WGS84/Outputcoords/LGunproj_coord.shp")
+
+#check crs
+crs(LG_unproj_coord) #it is in the wrong crs
+
+#So save them in sf package
+#use the old projection code just to set it correctly
+LG_unproj_cooord_sf <- st_as_sf(LG_unproj_coord, coords = c("x", "y"), crs = 4326) 
+
+#use the sf transform function to ADD coords of the new projection, using the ESRI code for albers conical SEA
+LG_coord_proj_sf <- st_transform(LG_unproj_cooord_sf, crs = "ESRI:102028")
+crs(LG_coord_proj_sf)
+
+#Extract the new cooridntaes from the geometry column
+LG_proj_coords <- st_coordinates(st_geometry(LG_coord_proj_sf))
+
+#Convert the coordinates to a data frame
+LG_proj_coords_df <- as.data.frame(LG_proj_coords)
+
+#save
+write.csv(LG_proj_coords_df, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LG/LG_coords_proj.csv", row.names = FALSE)
+
+#Go into this folder, open and check the data is as needed (X and Y headings), then change the extension to .XY
+
+####
+
+#We can also save it as a shapefile by opening this csv in R into an Albers map and using coordinate conversion to save as .shp.
+#Save as shp file, this is cola ready too!
+st_write(LG_coord_proj_sf, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LG/LG_coords_proj.shp")
+```
+
+2) Creating the projected Raster
+
+```{r}
+#library(spatialEco)
+
+#Load the new projected HD HSI raster
+LG_perfectHSI <- rast("C:\\Users\\shil5756\\Documents\\Directories\\R_directories\\Masters_VS_borneo\\Saved2\\Saved_realhabitatsuitability\\Suitability_LG1.tif")
+
+#Project it onto our desired Albers projection
+LG_HSI_proj <- project(LG_perfectHSI, crs("ESRI:102028"))
+
+#Invert the projected raster linearly
+LG_invert_proj <- raster.invert(LG_HSI_proj)
+
+#Then stretch to make the resistance raster
+LG_resi_proj <- raster.transformation(LG_invert_proj, trans = "stretch", smin=1, smax= 99)
+
+#make sure the projection has stayed
+crs(LG_resi_proj) # it has "PROJCRS[\"Asia_South_Albers_Equal_Area_Conic\",\n 
+
+#Check if x and Y cell dimensions are equal
+res(LG_resi_proj) #they seem to be, but in fact are off by a small amount (due to how computers use floating point calculations)
+
+#Thus we need to save them to do the final part in R, the tool 'Resample' (method bilinear) can be used to set the exact resolution (same as cell dimesnions). Load them into a map with the correct Albers project. Then Resample to 925x925.
+#save as TIFF to be taken to ARCGIS
+writeRaster(LG_resi_proj, 
+            "~/ArcGIS/Projects/Cola_dataprep_WGS84/InputRasters/LG_projectedResi.tif")
+
+#Once done, 
+
+#Then we load this bakc into R to restretch 
+LG_resi_resample <- rast("~/ArcGIS/Projects/Cola_dataprep_WGS84/ResampledRasters/LG_projectedResi_Resample.tif")
+LG_resi_resample_stretch <- raster.transformation(LG_resi_resample, trans = "stretch", smin=1, smax= 99)
+plot(LG_resi_resample_stretch)
+
+#and then finally save as an tif, by just using the .tif extension
+writeRaster(LG_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LG/LG_resi.tif")
+#and as asc
+writeRaster(LG_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LG/LG_resi.ASC")
+
+#however, this gives the asc with NAN nodata values, if you want -9999, you have to open the riff in R and specify it in the tool Raster to ASCII
+```
+
+This creates your cola ready folder with the projected coords (csv, XY, and shp. files) and the projected resistance (tif for Cola, and ASC9999 for raw UNICOR)
+
+## 6) LW
+
+1) Creating Projected Coords:
+
+Before this, I first imported the corrdintaes (PXY_HD.csv, in the Saved2 and Ponly subfolder) to ARCGIS via coordinate conversion, on a WGS 84 map (unprojected), and then exported that as a shape file. These should all be saved in one place, shape files come with multiple files that it links to.
+
+I load that shapefile here
+```{r}
+#Load unprojected shapefile
+LW_unproj_coord <- vect("~/ArcGIS/Projects/Cola_dataprep_WGS84/Outputcoords/LWunproj_coord.shp")
+
+#check crs
+crs(LW_unproj_coord) #it is in the wrong crs
+
+#So save them in sf package
+#use the old projection code just to set it correctly
+LW_unproj_cooord_sf <- st_as_sf(LW_unproj_coord, coords = c("x", "y"), crs = 4326) 
+
+#use the sf transform function to ADD coords of the new projection, using the ESRI code for albers conical SEA
+LW_coord_proj_sf <- st_transform(LW_unproj_cooord_sf, crs = "ESRI:102028")
+crs(LW_coord_proj_sf)
+
+#Extract the new cooridntaes from the geometry column
+LW_proj_coords <- st_coordinates(st_geometry(LW_coord_proj_sf))
+
+#Convert the coordinates to a data frame
+LW_proj_coords_df <- as.data.frame(LW_proj_coords)
+
+#save
+write.csv(LW_proj_coords_df, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LW/LW_coords_proj.csv", row.names = FALSE)
+
+#Go into this folder, open and check the data is as needed (X and Y headings), then change the extension to .XY
+
+####
+
+#We can also save it as a shapefile by opening this csv in R into an Albers map and using coordinate conversion to save as .shp.
+#Save as shp file, this is cola ready too!
+st_write(LW_coord_proj_sf, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LW/LW_coords_proj.shp")
+```
+
+2) Creating the projected Raster
+
+```{r}
+#library(spatialEco)
+
+#Load the new projected HD HSI raster
+LW_perfectHSI <- rast("C:\\Users\\shil5756\\Documents\\Directories\\R_directories\\Masters_VS_borneo\\Saved2\\Saved_realhabitatsuitability\\Suitability_LW1.tif")
+
+#Project it onto our desired Albers projection
+LW_HSI_proj <- project(LW_perfectHSI, crs("ESRI:102028"))
+
+#Invert the projected raster linearly
+LW_invert_proj <- raster.invert(LW_HSI_proj)
+
+#Then stretch to make the resistance raster
+LW_resi_proj <- raster.transformation(LW_invert_proj, trans = "stretch", smin=1, smax= 99)
+
+#make sure the projection has stayed
+crs(LW_resi_proj) # it has "PROJCRS[\"Asia_South_Albers_Equal_Area_Conic\",\n 
+
+#Check if x and Y cell dimensions are equal
+res(LW_resi_proj) #they seem to be, but in fact are off by a small amount (due to how computers use floating point calculations)
+
+#Thus we need to save them to do the final part in R, the tool 'Resample' (method bilinear) can be used to set the exact resolution (same as cell dimesnions). Load them into a map with the correct Albers project. Then Resample to 925x925.
+#save as TIFF to be taken to ARCGIS
+writeRaster(LW_resi_proj, 
+            "~/ArcGIS/Projects/Cola_dataprep_WGS84/InputRasters/LW_projectedResi.tif")
+
+#Once done, 
+
+#Then we load this bakc into R to restretch 
+LW_resi_resample <- rast("~/ArcGIS/Projects/Cola_dataprep_WGS84/ResampledRasters/LW_projectedResi_Resample.tif")
+LW_resi_resample_stretch <- raster.transformation(LW_resi_resample, trans = "stretch", smin=1, smax= 99)
+plot(LW_resi_resample_stretch)
+
+#and then finally save as an tif, by just using the .tif extension
+writeRaster(LW_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LW/LW_resi.tif")
+#and as asc
+writeRaster(LW_resi_resample_stretch, "~/Directories/R_directories/Masters_VS_borneo/Saved2/Cola_ready/LW/LW_resi.ASC")
+
+#however, this gives the asc with NAN nodata values, if you want -9999, you have to open the riff in R and specify it in the tool Raster to ASCII
+```
+
+This creates your cola ready folder with the projected coords (csv, XY, and shp. files) and the projected resistance (tif for Cola, and ASC9999 for raw UNICOR)
+
+### Include template for Cola run and link to their guide
+
+
+
+
+
+
+
+
+
+
+
+
+
+

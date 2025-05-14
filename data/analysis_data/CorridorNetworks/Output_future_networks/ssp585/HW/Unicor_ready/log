@@ -1,0 +1,8 @@
+201302251335   0     0     0scushman SMALLTEST = asciigrid(small_test.rsg)
+201302251343   9     1     0scushman grid
+201302251354   0     0     0scushman SMALL_TESTG = asciigrid(small_test_small_test_10pts.addedpaths)
+201302251420  27     0     0scushman grid
+201409141913   0     8     0scushman C:\bern_workshop\Exercise3\unicor\unicor\ec10kernel = ASCIIGRID( C:\BER
+20140915 343   0    15     0scushman C:\bern_workshop\Exercise3\unicor\unicor\e10kernel = ASCIIGRID( C:\BERN
+20140915 345   1    13     0scushman C:\bern_workshop\Exercise3\unicor\unicor\ec25kernel = ASCIIGRID( C:\BER
+201409171009   1     5     0scushman C:\bern_workshop\Exercise3\unicor\unicor\ec75paths = ASCIIGRID( C:\BERN

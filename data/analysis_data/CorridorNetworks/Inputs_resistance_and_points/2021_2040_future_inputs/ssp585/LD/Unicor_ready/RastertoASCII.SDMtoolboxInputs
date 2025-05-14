@@ -1,0 +1,6 @@
+2023-03-22 16:49:53.852000
+Input Parameters 
+Input Folder: E:\Sim_gen_indices\data
+Raster TypeTIFF (.tif) 
+Out folder: E:\Sim_gen_indices\least_cost_distances
+Rasters input: S7.tif, S6.tif, S5.tif, S4.tif, S3.tif, S2.tif, S1.tif, <built-in method next of geoprocessing list object object at 0x15479818>, 

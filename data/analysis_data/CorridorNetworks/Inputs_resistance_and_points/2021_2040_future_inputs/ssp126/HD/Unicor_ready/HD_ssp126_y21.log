@@ -1,0 +1,37 @@
+
+UNICOR Release 2022-01-17T09:00:00MDT Version 3.0.00
+
+Author(s): E.L. Landguth, et al.
+
+Session runtime inputs from: (HD_ssp126_y21.rip)
+
+
+Log output directed to     : (HD_ssp126_y21.log)
+G creation run-time: 0:00:00
+
+
+xy points run-time: 0:00:00
+
+
+Unicor does not currently support multi-processing in the windows os, reverting to serial calculations
+
+Printing out every source,destination combination at 10 percent completetions...
+Percent complete: 10%; Source point: -1003538.21431_2261808.8450215003; Start time: 0:00:00
+Percent complete: 20%; Source point: -890688.21431_1958408.8450215; Start time: 0:00:34.532243
+Percent complete: 30%; Source point: -941563.21431_2294183.8450215003; Start time: 0:01:08.922900
+Percent complete: 40%; Source point: -1028513.21431_2125833.8450215003; Start time: 0:01:44.974732
+Percent complete: 50%; Source point: -1034063.21431_2211858.8450215003; Start time: 0:02:21.033247
+Percent complete: 60%; Source point: -1022038.21431_1562508.8450215; Start time: 0:03:01.619864
+Percent complete: 70%; Source point: -979488.21431_2255333.8450215003; Start time: 0:03:41.943864
+Percent complete: 80%; Source point: -1002613.21431_2241458.8450215003; Start time: 0:04:26.084911
+Percent complete: 90%; Source point: -1043313.21431_2201683.8450215003; Start time: 0:04:57.844975
+Percent complete: 100%; Source point: -821313.21431_2284008.8450215003; Start time: 0:05:44.047609
+Percent complete: 110%; Source point: -896238.21431_2436633.8450215003; Start time: 0:06:21.185498
+
+Total shortest path calculation run-time: 0:06:24.221945
+
+The file hd_ssp126_y21_resi.asc_HD_Proj4.addedpaths.txt has been created in: 0:00:01.646588
+
+The file hd_ssp126_y21_resi.asc_HD_Proj4.kdepaths has been created in: 0:00:02.771038
+
+Total UNICOR program run-time: 0:06:42.711649
