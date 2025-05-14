@@ -340,7 +340,11 @@ ggplot(sample_n200_t25, aes(x= Corridor_Strength, y= Max_resilience)) +
 
 We can see that the majority of observations are at the low end of corridor strength with heavy right skew, so we may want to analyse it with log corridor strength.
 
-```{r, warning =FALSE}
+```{r Visualise Central Tendancy}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 #We can include the mean corridor strength of both the 1 and 0 groups to help visualise:
 med_logCrStr_0 <- median(sample_n200_t25$logCrStr[sample_n200_t25$Max_resilience == 0])
 med_logCrStr_1 <- median(sample_n200_t25$logCrStr[sample_n200_t25$Max_resilience == 1])
@@ -369,7 +373,11 @@ We can see that stronger corridors may indeed have a greater proportion of pixel
 
 Start with a simple one term model:
 
-```{r}
+```{r GAM1}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 #library(mgcv)
 
 #Build a simple logit-link GAM. We are using a GAM as this will later be necesary to account for spatial autocorrelation (which glm packages cannot do logit and SAC simultaneosuly): 
@@ -388,7 +396,11 @@ The slope of 0.08 suggest a very slight positive relationship: stronger corridor
 
 We can display this relationship on the plot. The smoother represents the probability of getting 0 Vulnerability increasing with corridor strength:
 
-```{r}
+```{r Plot GAM1}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 GAM1predicted_resilience <- predict(logit_gam1, type = "response")
 
 ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
@@ -409,7 +421,12 @@ ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
 
 We should see if this relationship considerably varies between our 'blocks' of subspecies and scenario:
 
-```{r}
+```{r Display speices level variaiton}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #here the smoothers do not show GAM, but GLM. This is for ease of coding; in general the relationships (on the braod sesne we are looking at in this overview) will remain the same in both modelling methods, so this still cna be used to view the effect of species groups:
 
 #set glm
@@ -431,7 +448,12 @@ qplot(data = logit_glm1, x = logCrStr, y = Max_resilience) +
 
 We can see that some of the un-accounted for variation may be coming from different subspecies. In LW, the relationship may even be flipped! So we should include this in our model.
 
-```{r}
+```{r GAM2}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #add random effect of species
 logit_gam2 <- gam(Max_resilience ~ logCrStr + s(Species, bs="re"), 
                   family = binomial(link = "logit"), data = sample_n200_t25)
@@ -450,7 +472,12 @@ This actually increases the significance and the estimate effect of the relation
 
 We can plot this model too, the same way:
 
-```{r}
+```{r Plot GAM2 Predictions}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 GAM2predicted_resilience <- predict(logit_gam2, type = "response")
 
 ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
@@ -473,7 +500,11 @@ We can see from the coefficients that the random effect does not change the dire
 
 As the long and short range species generally seem to conform, we should see if Niche makes for a better model.
 
-```{r}
+```{r GAM3}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 #try niche level random effect instead of species
 logit_gam3 <- gam(Max_resilience ~ logCrStr + s(Niche, bs="re"), 
                   family = binomial(link = "logit"), data = sample_n200_t25)
@@ -497,7 +528,11 @@ However, this model should also take into account some other terms. Habitat suit
 
 Finally, we will also add future scenario as a random factor, to see if this is a term that should be taken forward.
 
-```{r}
+```{r GAM4}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 #include future scenario as a random effect
 logit_gam4 <- gam(Max_resilience ~ logCrStr + Habitat_Suitability 
                   + Start_Distance +
@@ -527,7 +562,12 @@ The better AIC is likely driven by the distance from points, which we expected t
 
 We should also include spatial autocorrelation. First we can use Morans I to verify that it is present.
 
-```{r}
+```{r Create Local Morans I data}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #library(spdep)
 
 #Include a spatial autocorrelation term
@@ -580,7 +620,12 @@ head(sample_n200_t25[c(21, 22, 23, 24, 25, 26, 27)])
 
 We can view SAC spatially to get an idea:
 
-```{r}
+```{r View Local Morans I}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #Plot the classes of Moran I
 ggplot(sample_n200_t25, aes(x = x, y = y, colour= Moran_type)) +
   geom_point(size= 0.7, alpha= 0.5, 
@@ -590,7 +635,12 @@ ggplot(sample_n200_t25, aes(x = x, y = y, colour= Moran_type)) +
 
 We can get a value of global Moran's I for this map.
 
-```{r}
+```{r Test SAC}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #library(DHARMa)
 
 #get the global Moran I using Dharma
@@ -609,7 +659,12 @@ The moran's I indicates strong spatial autocorrelation in residuals; on average,
 
 So lets include a SAC term in the model, and see if this accounts for all of the variation; nullifying the significance of corridor strength and a correlate of vulnerability.
 
-```{r}
+```{r GAM5 and SAC test}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #add SAC term
 logit_gam5 <- gam(Max_resilience ~ logCrStr 
                   + Habitat_Suitability + Start_Distance
@@ -646,7 +701,12 @@ Including the Spatial Structure hugely increases the fit of the model (AIC) desp
 
 This is on pooled data, we should probably also look if the spatial autocorrelation is even more extreme by Niche.
 
-```{r}
+```{r View Morans I}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #Plot the classes of Moran I
 ggplot(sample_n200_t25, aes(x = x, y = y, colour= Moran_type)) +
   geom_point(size= 0.7, alpha= 0.5, 
@@ -656,7 +716,12 @@ ggplot(sample_n200_t25, aes(x = x, y = y, colour= Moran_type)) +
 
 The pooled data seems to find some insignificant Moran values where different niches overlap, meaning it may not be the best way to model the spatial structure of the data. So, we should check if a SAC term that is modelled for each niche is the better model. We would need to add a Niche specific spatial smooth.
 
-```{r}
+```{r Load GAM6}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #takes a long time so do not rerun
 #logit_gam6 <- gam(Max_resilience ~ logCrStr 
 #                  + s(x,y, by = Niche)
@@ -664,7 +729,7 @@ The pooled data seems to find some insignificant Moran values where different ni
 #                  family = binomial(link = "logit"), 
 #                  data = sample_n200_t25)
 
-logit_gam6 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/logit_gam6.rds")
+logit_gam6 <- readRDS(here('StrengthAnalysis', 'SavedModels', 'logit_gam6.rds'))
 
 summary(logit_gam6)
 AIC(logit_gam1)
@@ -696,7 +761,12 @@ Unfortunately for my computer, this is clearly the best fitting model (AIC= 2792
 
 Instead of including SAC, some recommend just including natural variables of the data collection that had spatial aspects. Because our data is simulated, we know that all of the spatially dependency comes from the temp, precip and elevation. So lets include these in the model and then test Moran's I.
 
-```{r}
+```{r GAM7}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 logit_gam7 <- gam(Max_resilience ~ logCrStr 
                     + Elevation + Temperature + Precipitation + Start_Distance +
                     + Habitat_Suitability 
@@ -720,11 +790,15 @@ testSpatialAutocorrelation(logit_gam7_DharmaSim,
 
 Including all other variables does account for SAC, however the AIC of the model suffers greatly. Thus, we will continue with a spatial term. We can also drop elevation as a non significant term.
 
-#### 11) Model 8: Spatial Structure and covariates
+#### 11) GAM8: Spatial Structure and covariates
 
 What if we included both?
 
-```{r}
+```{r Load GAM8}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 #logit_gam8 <- gam(Max_resilience ~ logCrStr 
 #                  + Temperature + Precipitation 
 #                  + Habitat_Suitability + Start_Distance
@@ -733,7 +807,7 @@ What if we included both?
 #                  family = binomial(link = "logit"), 
 #                  data = sample_n200_t25)
 
-logit_gam8 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/logit_gam8.rds")
+logit_gam8 <- readRDS(here('StrengthAnalysis', 'SavedModels', 'logit_gam8.rds'))
 
 summary(logit_gam8)
 
@@ -766,11 +840,15 @@ AIC(logit_gam8)
 
 The Deviance explained, as well as the AIC, all agree that the increased complexity is worth the model fit. This is our best model.
 
-#### 12) Final Model
+#### 12) GAM9: Final Model
 
 We can finish this model by removing the insignificant precipitation term
 
-```{r}
+```{r GAM9}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 #logit_gam9 <- gam(Max_resilience ~ logCrStr 
 #                  + Temperature + Habitat_Suitability + Start_Distance
 #                  + s(Species,bs="re") 
@@ -778,7 +856,7 @@ We can finish this model by removing the insignificant precipitation term
 #                  family = binomial(link = "logit"), 
 #                  data = sample_n200_t25)
 
-logit_gam9 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/logit_gam9.rds")
+logit_gam9 <- readRDS(here('StrengthAnalysis', 'SavedModels', 'logit_gam9.rds'))
 
 summary(logit_gam9)
 
@@ -804,7 +882,12 @@ This model accounts for SAC and has a similar minimal AIC, with the lowest numbe
 
 We should check how appropriate these models are. A quick start is viewing the residual-vs-fitted.
 
-```{r}
+```{r Binned residual plot}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #The binned residual plot can check that residuals are not deviating from what the model expects (with 95% CI, grey lines). With binary data if often comes up with an inherent error where the average residuals are falsely shifted down. This is because we are supplying it with residuals on the logit scale, but with the expected model values on the response scale.
 
 #So first we use the data to create an object of residuals that are on the repsonse scale;
@@ -825,7 +908,12 @@ We can see that 95% of the residuals fit within the expected bins. So we can be 
 
 We can view our final model (GAM9) and it's estimates:
 
-```{r}
+```{r Plot final model}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 GAMfinalpredicted_resilience <- predict(logit_gam9, type = "response")
 
 ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
@@ -842,7 +930,12 @@ ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
   theme(legend.position = "none")
 ```
 
-```{r}
+```{r Calculate slope and CI}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #confint() doesnt seem to work for gam (mgcv) so we will calculate the CI directly
 
 #the summary gives standard error, so we can use this to construct CI:
@@ -866,7 +959,12 @@ Our most robust model suggests that stronger corridors are more likely (increase
 
 This aligns with the ecological theory (stronger corridors are more likely to be situated in ideal niche space, whilst also accounting for dispersal, and thus should be more resilient than weaker) and therefore is our first line of evidence that conservation practitioners may be able to use current corridor strength to estimate climate vulnerability.
 
-```{r}
+```{r Visualise the effect of Strength}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #make a dummy dataframe where only the Vulnerability, Strength, and SAC are retained as terms (all else is mean average)
 new_data <- data.frame(
   Vulnerability = seq(min(sample_n200_t25$Vulnerability), 
@@ -916,7 +1014,12 @@ First we are going to make a sub data set which has only nonzero values.
 
 For making your own sample:
 
-```{r}
+```{r Filter zeros (if using own sample)}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #filter zeros
 sample_n200_t25_n0 <- sample_n200_t25[sample_n200_t25$Vulnerability != 0, ]
 
@@ -932,15 +1035,22 @@ The later analysis is too much for my laptop to handle. I am going to take a sma
 
 This code takes a new subsample, or loads the subsample that I used.
 
-```{r}
+```{r replicate a scaled down test sample}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #take balanced samples grouped by the factors. Considering Future Scenario has little to no impact, sampling 50 means that each species will have 150 datapoints and each niche 300. This should be sufficient for the preliminary analysis
 #we sample in a blanced way
+
+#if you are working with your own sample:
 #testsample_n0 <- sample_n200_t25_n0 %>% group_by(Species, FutureScenario) %>% sample_n(50)
 
 #write.csv(testsample_n0, "filename", row.names = FALSE)
 
 #to replicate my sample again:
-testsample_n0 <- read.csv("testsample_n0.csv",header= TRUE)
+testsample_n0 <- read.csv(here('data', 'analysis_data', 'Testsample_n0_n50.csv'),header= TRUE)
 
 #if loading data, will need this
 #We should also define that the factros are in fatc factors, not character strings:
@@ -957,7 +1067,12 @@ testsample_n0$Niche <- factor(testsample_n0$Niche)
 
 Lets explore the relationship we are interested in:
 
-```{r}
+```{r Plote relationship}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 ggplot(testsample_n0, 
        aes(x = logCrStr, y = log1p(Vulnerability))) +
   geom_point(size= 0.75, alpha= 0.06) + 
@@ -970,7 +1085,11 @@ ggplot(testsample_n0,
 
 We can also explore how the different factors may or may not be relevant
 
-```{r}
+```{r Explore the effect of Factors}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
 #we might be interested in how this relationship depends on:
 # the three future scenario
 ggplot(testsample_n0, 
@@ -1045,7 +1164,12 @@ From this we can already see a few things. The future scenario seems to has no r
 
 First, lets look at the semi-continuous data to prepare for modelling.
 
-```{r}
+```{r View response distribution}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #display the response data in a histogram
 ggplot(testsample_n0,
        aes(x= Vulnerability))+
@@ -1059,7 +1183,12 @@ We no longer have to worry about zero inflation, leaving us with a highly right 
 
 Lets find what the ideal link would be, using a box-cox transformation test.
 
-```{r}
+```{r Boxcox estimate of transformation}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #library(arm)
 #run box-cox
 BOXCOX_output <- boxcox(testsample_n0$Vulnerability ~ 1, 
@@ -1072,7 +1201,12 @@ lambda # = -0.02020202
 
 The box cos gives back a result very close to zero. 1 would mean no transformation is needed, while this close to zero implies a simple log transformation is the best choice:
 
-```{r}
+```{r View log transformed response}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #display the response data in a histogram
 ggplot(testsample_n0,
        aes(x= log(Vulnerability)))+
@@ -1090,7 +1224,12 @@ I am going to use GAM again because it allows for the inclusion of a spatial smo
 
 First we can model the variance as a Gaussian.
 
-```{r}
+```{r Guassian GAM}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #Contin_gam_guass <- gam(Vulnerability ~ logCrStr 
 #                        + Elevation + Temperature + Precipitation
 #                        + Habitat_Suitability + Start_Distance 
@@ -1103,7 +1242,7 @@ First we can model the variance as a Gaussian.
 #saveRDS(Contin_gam_guass, "~/ConnectivityData_master/Data/SavedModels2/Contin_gam_guass.rds")
 
 #replicate my sample
-Contin_gam_guass <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Contin_gam_guass.rds")
+Contin_gam_guass <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Contin_gam_guass.rds'))
 
 summary(Contin_gam_guass)
 
@@ -1113,7 +1252,12 @@ AIC(Contin_gam_guass)
 
 However, the variance is not transformed by the log link so follows the distribution shown above (both qq plot and variance show two tailed distribution). This is a right skewed, positive only distribution. And we can now see that the residuals increase in variance scaling with the linear predictor (logCrStr): funneling of residuals. This is suitable for a Gamma distribution, which specifically follows increasing variance with scale, right skewed, positive only data.
 
-```{r}
+```{r gamma GAM}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #Model a log link with a gamma variance function
 #Contin_gam_gamma <- gam(Vulnerability ~ logCrStr 
 #                        + Elevation + Temperature + Precipitation
@@ -1127,7 +1271,7 @@ However, the variance is not transformed by the log link so follows the distribu
 #saveRDS(Contin_gam_gamma, "~/ConnectivityData_master/Data/SavedModels2/Contin_gam_gamma.rds")
 
 #replicate my sample
-Contin_gam_gamma <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Contin_gam_gamma.rds")
+Contin_gam_gamma <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Contin_gam_gamma.rds'))
 
 summary(Contin_gam_gamma)
 
@@ -1144,7 +1288,12 @@ We can see that this has dealt much better with that 'funneling' of residuals, a
 
 A tweedie distribution is for right skew data and can uniquely have a cluster of points near zero (point mass), which is appropriate for our response distribution.
 
-```{r}
+```{r tweedie GAM}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #Contin_gam_tweed <- gam(Vulnerability ~ logCrStr 
 #                        + Elevation + Temperature + Precipitation
 #                        + Habitat_Suitability + Start_Distance 
@@ -1157,7 +1306,7 @@ A tweedie distribution is for right skew data and can uniquely have a cluster of
 #saveRDS(Contin_gam_tweed, "~/ConnectivityData_master/Data/SavedModels2/Contin_gam_tweed.rds")
 
 #replicate my sample
-Contin_gam_tweed <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Contin_gam_tweed.rds")
+Contin_gam_tweed <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Contin_gam_tweed.rds'))
 
 summary(Contin_gam_tweed)
 
@@ -1172,6 +1321,11 @@ shapiro.test(residuals_continV_sample2)
 The histogram of residuals as well as the qqplot show that this model is also a good variance function to achieve normality of residuals. We can compare the AIC of the different variance functions used:
 
 ```{r}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 AIC(Contin_gam_guass) 
 AIC(Contin_gam_gamma) 
 AIC(Contin_gam_tweed)
@@ -1185,13 +1339,18 @@ We can see that the distribution simultaneously approaches normality and homosck
 
 First lets get a baseline Minimal model to compare with. The minimal model will be an X\~Y GAM with no spatial term, and only a species random effect.
 
-```{r}
+```{r TW0}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #full model, pooled spatial term
 #Gam_tw0_test <- gam(Vulnerability ~ logCrStr + s(Species,bs="re"), family = tw(link = "log"), data = testsample_n0)
 
 #save
 #saveRDS(Gam_tw0_test, "~/ConnectivityData_master/Data/SavedModels2/Gam_tw0_test.rds")
-Gam_tw0_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam_tw0_test.rds")
+Gam_tw0_test <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Gam_tw0_test.rds'))
 
 #Return summary and AIC
 summary(Gam_tw0_test)
@@ -1299,13 +1458,18 @@ Now we are confident in the link and variance function, we need to just explore 
 
 We should try with a pooled spatial term to start:
 
-```{r}
+```{r TW1}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #full model, pooled spatial term
 #Gam_tw1_test <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + s(x,y) + s(Species,bs="re"), family = tw(link = "log"), data = testsample_n0)
 
 #save
 #saveRDS(Gam_tw1_test, "~/ConnectivityData_master/Data/SavedModels2/Gam_tw1_test.rds")
-Gam_tw1_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam_tw1_test.rds")
+Gam_tw1_test <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Gam_tw1_test.rds'))
 
 #Return summary and AIC
 summary(Gam_tw1_test)
@@ -1397,12 +1561,17 @@ From the previous hurdle as well as exploratory graphing, we know that SAC by Ni
 
 So, lets try this:
 
-```{r}
+```{r TW2}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #Gam_tw2_test <- gam(Vulnerability ~ logCrStr + Precipitation+ Habitat_Suitability + Start_Distance + s(x,y, by = Niche) + s(Species,bs="re"), family = tw(link = "log"), data = testsample_n0)
 
 #save
 #saveRDS(Gam_tw2_test, "~/ConnectivityData_master/Data/SavedModels2/Gam_tw2_test.rds")
-Gam_tw2_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam_tw2_test.rds")
+Gam_tw2_test <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Gam_tw2_test.rds'))
 
 #Return summary and AIC
 summary(Gam_tw2_test)
@@ -1488,7 +1657,7 @@ Deviance explained = 69%
 
 This model decreases the difference between nugget and sill in the variogram (meaning a lower % of the variance is due to SAC), which we can also see with a much smaller SAC effect in the montecarlo simulation . As a result, the test returns that there is no signficant clustering.
 
-The qq plot of residuals does seem to follow normal residuals, but is now we more seriosuly violating the assumption of homoskedasticity.
+The qq plot of residuals does seem to follow normal residuals, but is now we more seriously violating the assumption of homoskedasticity.
 
 #### 8) Conclusions to GAM modelling
 
@@ -1500,15 +1669,18 @@ GLMMs in R are able to model some more flexible spatial terms, but cannot use th
 
 A gamma variance function is our next best option. Here we use a matern spatial structure. In this model, we constrain rho (a distance scaling factor) to be larger than the package estimates automatically. Because rho is related to nu (the smoothness of the spatial pattern), this results in nu being smaller. In general, this glmm uses a spatial structure that is highly flexible and assumes SAC is strong over large distances.
 
-Unfortunately, due to limits on filesize in github, these large models need to be run locally to recreate on the same data. Please allow 10-30 minutes. As a result, they are absent from the 'SavedModels' folder.
+```{r GLMM1}
+#| echo: false  
+#| warning: false 
+#| message: false 
 
-```{r}
+
 #In a glmm we can specify the matern spatial structure, which is more flexible 
 #glmm1_test <- fitme(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + Matern(1 | x + y), data = testsample_n0, family = Gamma(link = 'log'), init = list(corrPars = list("1" = list(rho = 0.1))), control.HLfit = list(NbThreads = 9)) 
 
 #save
-#saveRDS(glmm1_test, "~/ConnectivityData_master/Data/SavedModels2/Glmm1_test.rds")
-glmm1_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Glmm1_test.rds")
+#saveRDS(glmm1_test, "filename")
+glmm1_test <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Glmm1_test.rds'))
 
 #Return summary and AIC
 summary(glmm1_test)
@@ -1591,13 +1763,18 @@ For GLMMs the conditional AIC includes both fixed and random effects, and how th
 
 In this next model, the spatial decay (rho) and smoothness (nu) are unconstrained so R decides them automatically. In this case, it results in a spatial term that has a much smaller rho; R thinks that the spatial autocorrelation decays rapidly so is strongest at short distances. And is slightly less smooth.
 
-```{r}
+```{r GLMM2}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #In a glmm we can specify the matern spatial structure, which is more flexible 
 #glmm2_test <- fitme(Vulnerability ~ logCrStr + Precipitation + Start_Distance + Habitat_Suitability + Matern(1 | x + y), data = testsample_n0, family = Gamma(link = 'log'), control.HLfit = list(NbThreads = 9)) 
 
 #save
-#saveRDS(glmm2_test, "~/ConnectivityData_master/Data/SavedModels2/Glmm2_test.rds")
-glmm2_test <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Glmm2_test.rds")
+#saveRDS(glmm2_test, "filename")
+glmm2_test <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Glmm2_test.rds'))
 
 #Return summary and AIC
 summary(glmm2_test)
@@ -1690,7 +1867,12 @@ It is not uncommon for data to be resistant to modelling with the available pack
 
 To do so, we should plot the predictions of each of the 4 key models (+minimal) on one graph to see how much they converge.
 
-```{r}
+```{r Visualise Conitnuous Relationship Models}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #extract predictions (need to convert glmm matrix to numeric)
 GAM0predictions <- predict(Gam_tw0_test, type = "response")
 GAM1predictions <- predict(Gam_tw1_test, type = "response")
@@ -1756,15 +1938,25 @@ ggplot(data = testsample_n0,
 
 I compiled these graphs so that they can be compared easily, in the following png.
 
-```{r}
-knitr::include_graphics("~/ConnectivityData_master/Data/Images/HurdleP2_finalmodel_showcase2.png", dpi = 300)
+```{r Include image}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
+knitr::include_graphics(here('images', 'HurdleP2_finalmodel_showcase2.png'), dpi = 300)
 ```
 
 We can clearly see that, whether you prioritize meeting core assumptions or accounting for spatial clustering of the response variable, the relationship between corridor strength and vulnerability is always the same and significant. This suggests that corridor strength correlates with decreased climate vulnerability.
 
 We can also see an early dip and then back up, this is likely due to HD short having a much sooner and sharper fall in vulnerability according to strength. We can show this by separating out the plots.
 
-```{r}
+```{r View the effect of strength, GLMM2}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #Simple glm Y~X relationship
 ggplot(testsample_n0, 
        aes(x = logCrStr, y = log1p(Vulnerability), 
@@ -1807,7 +1999,7 @@ ggplot(data = dummytestsample,
               aes(y = log(GLMM2predictions_values)), 
               color = "mediumpurple1", size = 1.5, se = FALSE) +
   labs(x = "Log Corridor Strength", y = "log Climate Vulnerability", 
-       title = "GLMM2 predictions") +
+       title = "GLMM2 predictions (log-log)") +
   theme_minimal() +
   coord_cartesian(ylim=c(7, 10))
 
@@ -1859,7 +2051,12 @@ From the power analysis, we saw that n only needs to be 77 per factor. The first
 
 This will be a subsample from the 7,200 used in part 1, meaning we are always working with the same overall dataset. You can make your own, or load the sample I used:
 
-```{r}
+```{r Scale sample back up, only to n=100}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #make a temporary without 0s
 #sample_n200_t25_n0 <- sample_n200_t25[sample_n200_t25$Vulnerability != 0, ]
 
@@ -1870,7 +2067,7 @@ This will be a subsample from the 7,200 used in part 1, meaning we are always wo
 #write.csv(sample_n100_t25_n0, "C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\Data\\Dataframes2\\sample_n100_t25_n0_ksApril.csv", row.names = FALSE)
 
 #to replicate my sample:
-sample_n100_t25_n0 <- read.csv("",header= TRUE)
+sample_n100_t25_n0 <- read.csv(here('data', 'analysis_data', 'Scalesample_n0_n100.csv'),header= TRUE)
 
 #set factors
 sample_n100_t25_n0$Species <- factor(sample_n100_t25_n0$Species)
@@ -1886,7 +2083,12 @@ head(sample_n100_t25_n0)
 
 We should make a new spatial weights matrix for this sample:
 
-```{r}
+```{r Redifine spatial weights matrix}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
 #Identify the minimimum threshold distance that will give every observation at least 1 neighbour
 test_Coords_n100 <- cbind(sample_n100_t25_n0$x, sample_n100_t25_n0$y)
@@ -1907,13 +2109,18 @@ lw3 <- nb2listw(nb3, zero.policy = TRUE)
 
 Then construct the GAM1UP:
 
-```{r}
+```{r GAM1UP}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #full model, pooled spatial term
 #Gam1_n100 <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + s(x,y) + s(Species,bs="re"), family = tw(link = "log"), data = sample_n100_t25_n0)
 
 #save
 #saveRDS(Gam1_n100, "~/ConnectivityData_master/Data/SavedModels2/Gam1_n100.rds")
-Gam1_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam1_n100.rds")
+Gam1_n100 <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Gam1_n100.rds'))
 
 #Return summary and AIC
 summary(Gam1_n100)
@@ -1994,13 +2201,18 @@ Relationship = -0.22 \< **-0.192** \< -0.16
 
 construct GAM2UP:
 
-```{r}
+```{r GAM2UP}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #full model, pooled spatial term
 #Gam2_n100 <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + s(x,y, by = Niche) + s(Species,bs="re"), family = tw(link = "log"), data = sample_n100_t25_n0)
 
 #save
 #saveRDS(Gam2_n100, "~/ConnectivityData_master/Data/SavedModels2/Gam2_n100.rds")
-Gam2_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Gam2_n100.rds")
+Gam2_n100 <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Gam2_n100.rds'))
 
 #Return summary and AIC
 summary(Gam2_n100)
@@ -2079,84 +2291,16 @@ Moran I = 0.01 (p\<0.05)
 
 Relationship = -0.12 \< **-0.090** \< -0.06
 
-You could also try a tensor product smooth:
+Construct GLMM1UP:
 
-```{r}
-Gam3_n100 <- gam(Vulnerability ~ logCrStr + Precipitation + Habitat_Suitability + Start_Distance + te(x,y) + s(Species,bs="re"), family = tw(link = "log"), data = sample_n100_t25_n0)
+```{r GLMM1UP}
+#| echo: false  
+#| warning: false 
+#| message: false 
 
-summary(Gam3_n100)
-AIC(Gam3_n100)
 
-#view residual fitted:
-DharmaSim_Gam3_n100 <- simulateResiduals(fittedModel = Gam3_n100, 
-                                            plot = F)
-DharmaSim_Gam3_n100_BySp = recalculateResiduals(DharmaSim_Gam3_n100, 
-                                         group = sample_n100_t25_n0$Species)
-
-plot(DharmaSim_Gam3_n100)
-plot(DharmaSim_Gam3_n100_BySp)
-
-#to use the montecarlo moran test, which is more robust, we need to make a spatial weights matrix
-Gam3_n100_deviance <- residuals(Gam3_n100, type = 'deviance')
-moran.mc(Gam3_n100_deviance, listw = lw3, nsim = 999, alternative = "greater")
-
-#plot variogram 
-dummytestsample <- sample_n100_t25_n0
-
-# Add residuals to your dummy dataframe
-dummytestsample$Gam3_n100_deviance <- Gam3_n100_deviance
-
-# Calculate the empirical variogram
-variogram_Gam3_n100 <- variogram(Gam3_n100_deviance ~ 1, 
-                                 locations = ~x + y,
-                                 data = dummytestsample,
-                              cutoff= 250000, width= 250000/30)
-
-plot(variogram_Gam3_n100, 
-     main = "Variogram of Gam3 Residuals; Y~X + full + re(Species) + Niche(xy)", 
-     pch = 16, col = "blue")
-
-#extract nugget and sill
-#approcimate the nugget by getting the semivairance at the lowest distance bin
-variomodel_Gam3_n100 <- fit.variogram(variogram_Gam3_n100, 
-                                 model = vgm(psill = 1, "Exp", 
-                                             range = 500000, 
-                                             nugget = 0.1))
-
-plot(variogram_Gam3_n100, model = variomodel_Gam3_n100, 
-     main = "Variogram of Gam3 Residuals; Y~X + full + re(Species) + Niche(xy)")
-
-nugget_Gam3 <- variomodel_Gam3_n100$psill[1]
-sill_Gam3 <- variomodel_Gam3_n100$psill[1] + variomodel_Gam3_n100$psill[2]
-non_sp_variaiton_Gam3 <- (nugget_Gam3/sill_Gam3)*100
-spatialvariaiton_Gam3 <- 100-non_sp_variaiton_Gam3
-
-#build spatial inference df
-SACtable_Gam3 <- data.frame(Nugget = nugget_Gam3, 
-                        Sill = sill_Gam3, 
-                        Percentage_Variatin_Spatial = spatialvariaiton_Gam3)
-SACtable_Gam3
-
-#build CI conclusion table
-Gam3_summary <- summary(Gam3_n100)
-
-lowerbound_Gam3 <- Gam3_summary$p.coeff["logCrStr"] - 1.96 *    
-                Gam3_summary$se["logCrStr"]
-upperbound_Gam3 <- Gam3_summary$p.coeff["logCrStr"] + 1.96 * 
-                Gam3_summary$se["logCrStr"]
-
-#and put it all in a nice dataframe:
-Gam3_CI <- data.frame(Lower_CI = lowerbound_Gam3, 
-                        Slope = Gam3_summary$p.coeff["logCrStr"], 
-                        Upper_CI = upperbound_Gam3)
-Gam3_CI
-```
-
-Construct GLMM1:
-
-```{r}
 #read in model, due to long run times
-glmm1_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/Glmm1_n100.rds")
+glmm1_n100 <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Glmm1_n100.rds'))
 
 #if you want to set model
 #glmm1_n100 <- fitme(Vulnerability ~ logCrStr + Precipitation + Start_Distance + Habitat_Suitability + Matern(1 | x + y), data = sample_n100_t25_n0, family = Gamma(link = 'log'), init = list(corrPars = list("1" = list(rho = 0.1))), control.HLfit = list(NbThreads = 9)) 
@@ -2245,9 +2389,14 @@ Relationship = -0.15 \< **-0.121** \< -0.08
 
 And for the right hand model:
 
-```{r}
+```{r GLMM2UP}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #read in model, due to long run times
-glmm2_n100 <- readRDS("~/ConnectivityData_master/Data/SavedModels2/glmm2_n100.rds")
+glmm2_n100 <- readRDS(here('StrengthAnalysis', 'SavedModels', 'Glmm2_n100.rds'))
 
 #if you want to set model
 #glmm2_n100 <- fitme(Vulnerability ~ logCrStr + Precipitation + Start_Distance+ Habitat_Suitability + Matern(1 | x + y), data = sample_n100_t25_n0,family = Gamma(link = 'log'),control.HLfit = list(NbThreads = 9)) 
@@ -2340,7 +2489,10 @@ The AIC suggests this is the more suitable model, and it successfully accounts f
 
 Part one of the hurdle model showed that the probability of undetectable climate vulnerability (resilience higher than the resolution of the metric) increased with corridor strength. This suggests that stronger corridors are more likely to be situated on the strongest future corridors.
 
-```{r}
+```{r Results of Part 1, Binary}
+#| echo: false  
+#| warning: false 
+#| message: false 
 #| fig-width: 9
 #| fig-height: 4
 #| fig-align: "center"  # Optional alignment
@@ -2382,9 +2534,14 @@ ggplot(data = sample_n200_t25, aes(x = logCrStr, y = Max_resilience)) +
 
 This supports the conclusions from the second analysis. On both smaller and larger subsamples, and using a variety of models, there is a robust relationship; stronger corridors correlate with lower climate vulnerability. This supports the ecological hypothesis that stronger corridors, being situated in more ideal niche space, are less likely to be pushed out of dispersal preference due to change. This concept may apply to other kinds of disruption, such as development, as the ecological concept is not dependent on the disruption being climate change.
 
-Although we can view the relationship with no transformations, which seems intuitive:
+Although we can view the relationship with no transformations, which seems intuitive, it actually is not:
 
-```{r}
+```{r Untransformed results of part 2, continuous}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #make model predicitons
 GLMM2_n200_predictions <- predict(glmm2_n100, type = "response")
 GLMM2_n200_predictions_values <- as.numeric(GLMM2_n200_predictions)
@@ -2403,13 +2560,23 @@ ggplot(data = sample_n100_t25_n0,
 
 If we load the original data into R, viewing corridor strength on the natural log scale is actually more intuitive (as the ecological importance of corridors scales exponentially).
 
-```{r}
-knitr::include_graphics("~/ConnectivityData_master/Data/Images/natlog_breaks.png", dpi = 300)
+```{r View log scale of corridor strength in situ}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+knitr::include_graphics(here('images', 'natlog_breaks.png'), dpi = 300)
+
 ```
 
 Thus, it is easier to view this relationship on the log scale, and keep in mind the above map. Here the individual effect of corridor strength has been parsed out in green again.
 
 ```{r}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #extract predictions (need to convert glmm matrix to numeric)
 GAM1predictions_n100 <- predict(Gam1_n100, type = "response")
 GAM2predictions_n100 <- predict(Gam1_n100, type = "response")
@@ -2437,7 +2604,7 @@ new_data_n100 <- data.frame(
 #predict the relationship between just Y~X
 new_data_n100$predicted_vuln <- as.numeric(predict(glmm2_n100, newdata = new_data_n100, type = "response"))
 
-#plot
+#plot the model predictions and the effect of corridor strength
 ggplot(data = sample_n100_t25_n0, 
        aes(x = logCrStr, y = Vulnerability)) +
   geom_point(size= 0.75, alpha= 0.1) +
@@ -2446,7 +2613,7 @@ ggplot(data = sample_n100_t25_n0,
     geom_smooth(aes(y = new_data_n100$predicted_vuln), 
               color = "black", size = 1.6) +
   labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
-       title = "GLMM2 on larger sample, predictions") +
+       title = "GLMM2 on larger sample, predictions (dashed), strength effect (full)") +
   theme_light() +
   coord_cartesian(ylim=c(0, 30000))
 
@@ -2478,24 +2645,33 @@ ggplot(data = sample_n100_t25_n0,
   geom_smooth(aes(y = new_data_n100_2$predicted_vuln), 
               color = "black", size = 1.6, se=F) +
   labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
-       title = "GLMM2 on larger sample, predictions") +
+       title = "GLMM2 on larger sample, predictions (dashed), strength effect accounting for SAC (full)") +
   theme_light() +
   coord_cartesian(ylim=c(0, 30000))
 ```
 
 Here I have placed the colours from the map onto the log scale, so that you can see how climate vulnerability is decreasing over the network.
 
-```{r}
-knitr::include_graphics("~/ConnectivityData_master/Data/Images/GLMM2_natbreaks_demo.png", dpi = 300)
+```{r Visualise the scale off effect}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
+knitr::include_graphics(here('images', "GLMM2_natbreaks_demo.png"), dpi = 300)
 ```
 
 We will also want to make the graph spectrum figure:
 
-```{r}
+```{r Recreate final graph spectrum figure}
+#| echo: false  
+#| warning: false 
+#| message: false 
+
+
 #extract predictions (need to convert glmm matrix to numeric)
 GAM1predictions_n100 <- predict(Gam1_n100, type = "response")
 GAM2predictions_n100 <- predict(Gam2_n100, type = "response")
-GAM3predictions_n100 <- predict(Gam3_n100, type = "response")
 GAM2predictions_n100 <- predict(Gam2_n100, type = "response")
 GLMM1predictions_n100 <- predict(glmm2_n100, type = "response")
 GLMM1predictions_values_n100 <- as.numeric(GLMM1predictions_n100)
@@ -2505,7 +2681,6 @@ GLMM2predictions_values_n100 <- as.numeric(GLMM2predictions_n100)
 #add the predictions for effect only data
 new_data_n100$predicted_vuln_gam1 <- predict(Gam1_n100, newdata = new_data_n100, type = "response")
 new_data_n100$predicted_vuln_gam2 <- predict(Gam2_n100, newdata = new_data_n100, type = "response")
-new_data_n100$predicted_vuln_gam3 <- predict(Gam3_n100, newdata = new_data_n100, type = "response")
 new_data_n100$predicted_vuln_glmm1 <- as.numeric(predict(glmm1_n100, newdata = new_data_n100, type = "response"))
 new_data_n100$predicted_vuln_glmm2 <- as.numeric(predict(glmm2_n100, newdata = new_data_n100, type = "response"))
 
@@ -2550,28 +2725,6 @@ ggplot(data = sample_n100_t25_n0,
 ggplot(data = sample_n100_t25_n0, 
        aes(x = logCrStr, y = Vulnerability)) +
   geom_point(size= 0.75, alpha= 0.05) +
-  geom_smooth(aes(y = GAM3predictions_n100), color = "#009933", size = 1,  se=F, linetype = "dashed") +  
-      geom_smooth(aes(y = new_data_n100$predicted_vuln_gam3), 
-              color = "#009933", size = 1.6, se=F) +
-  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
-       title = "GAM3 predictions") +
-  theme_light() +
-  coord_cartesian(ylim=c(0, 700000))
-
-ggplot(data = sample_n100_t25_n0, 
-       aes(x = logCrStr, y = Vulnerability)) +
-  geom_point(size= 0.75, alpha= 0.05) +
-  geom_smooth(aes(y = GAM2predictions_n100), color = "#00ff33", size = 1,  se=F, linetype = "dashed") +  
-        geom_smooth(aes(y = new_data_n100$predicted_vuln_gam2), 
-              color = "#00ff33", size = 1.6, se=F) +
-  labs(x = "Log Corridor Strength", y = "Climate Vulnerability", 
-       title = "GAM2 predictions") +
-  theme_light() +
-  coord_cartesian(ylim=c(0, 700000))
-
-ggplot(data = sample_n100_t25_n0, 
-       aes(x = logCrStr, y = Vulnerability)) +
-  geom_point(size= 0.75, alpha= 0.05) +
   geom_smooth(aes(y = GLMM2predictions_values_n100), color = "#33ff99", size = 1, se=F, linetype = "dashed") +
           geom_smooth(aes(y = new_data_n100$predicted_vuln_glmm2), 
               color = "#33ff99", size = 1.6, se=F) +
@@ -2590,7 +2743,3 @@ With this in mind, in real species the increased number of factors in dispersal 
 The underlying ecological theory (that stronger corridors represent closer-to-niche landscapes, which are more resilient to climatic shifts) should still apply to some extent. Thus an *en situ* application of the analysis on a diverse set of species would be important to validate that this effect is strong enough in nature to be relevant to practitioners wanting to direct corridor conservation in a changing climate.
 
 Beyond the strength-vulnerability question, we more importantly demonstrate that this new metric lends itself well to testing spatial relationships, as apposed to corridor analysis being limited to global inferences. With a similar method, the data generated by the vulnerability metric could test hypotheses such as; if more heterogeneous habitats have less stable corridors, if one species is expected to be more vulnerable than another, or if protected areas are prioritizing the most susceptible corridors. It could even compare different (non-climate) future scenarios. Such as comparing two infrastructure proposals to see if one causes corridor vulnerability in key habita
-
-```{r}
-save.image(file = "~/ConnectivityData_master/Data/GlobalEnv/march31_globenv.RData")
-```
