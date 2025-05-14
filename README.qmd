@@ -1,0 +1,11 @@
+---
+title: "README.qmd"
+format: html
+editor: visual
+---
+
+## README
+
+This repository accompanies the dissertation submission of Master's candidate Kristian Suszczenia.
+
+This research creates a set of virtual species, prepares them for corridor modelling software, uses the output corridor networks to design a metric of 'distortion vulnerability' (how networks spatially change their shape and ecological relevance over the landscape), and finally uses this metric to conduct exemplary inferential statistics testing if strong corridors are more resistant to distortion due to their relative proximity to the species' niche.
