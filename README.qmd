@@ -13,3 +13,14 @@ This research creates a set of virtual species, prepares them for corridor model
 Download and use the metric using the .gpkx (arcgis sharable toolbox) file in 'Downlaod_the_Metric'. In this file is also template data; a Zone for contiguous Borneo displaying the required format, a baseline (LW_resi_lcc_50000.tif) and a comparison (future: LW_ssp585_y21_resi_lcc_50000.tif).
 
 To follow the research approach itself, it is split into three work packages. First, the creation the virtual species which were used for both metric designing and analysis, then metric design, then our strength analysis.
+
+Open Access Data:
+
+\
+For the detected location points and resistance rasters of the 6 niches, see VirtualSpecies \> ConnectivityAlgorithm_inputs. This will provide resistance for both past and future. These folders are already compatible with CoLa. To follow their creation, see the .rmd files enclosed within VirtualSpecies
+
+For the baseline and comparison corridor networks (the outputs of running the above inputs in CoLa), see data \> analysis_data \> CorridorNetworks and choose current or future output networks. Also included here is the 'ZONE' needed to run the distortion metric on Borneo.
+
+For the distortion vulnerability outputs of this study, see data \> distortion. These are the .tif files of the distortion vulnerability. If you are instead looking for the datapoints of this, look in data \> analysis_data for the .csv files. You can see how the .tif files of distortion vulnerability and all explanatory variables were converted into the .csv data tables provided in StrengthAnalysis \> DataProccessing.qmd.
+
+Thus you can follow the data from the virtual species all the way through to the analysis (though substantial data changes are made throughout in ARCGIS pro, which I cannot show, but do give guidance on).
