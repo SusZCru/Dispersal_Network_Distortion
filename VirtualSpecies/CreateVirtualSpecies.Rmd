@@ -5,6 +5,8 @@ date: "2024-11-09"
 output: html_document
 ---
 
+In this code we start with the creation of virtual species, and use these to genorate resistance rasters and population presence points; the inputs for connectivity analysis. 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
