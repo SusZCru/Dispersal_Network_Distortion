@@ -1,0 +1,212 @@
+---
+title: "Change_topog_corre"
+author: "Kristian Suszczenia"
+date: "2024-10-29"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Install and Library packages
+
+```{r}
+library(terra)
+library(ggplot2)
+```
+##Loading Rasters
+
+CTI raster
+```{r}
+CTI <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/CTI/CTI_5.tif")
+CTI
+```
+TPI raster
+```{r}
+TPI <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/TPI/TPI_6.tif")
+TPI
+```
+Roughness raster
+```{r}
+Ruff <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/Ruff/Ruff_5.tif")
+Ruff
+```
+Elevation raster
+```{r}
+Elev <- rast("~/ArcGIS/Projects/Borneo_projection_testing/Exported_Normalised/Elevation/Elev.tif")
+Elev
+plot(Elev)
+
+logElev <- log(Elev)
+plot(logElev)
+```
+
+Now the Temp change rasters
+```{r}
+TempChange_ssp245_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/TempChange/TempChange245_2040norm.tif")
+TempChange_ssp370_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/TempChange/TempChange370_2040norm2.tif")
+
+TempChange_ssp245_2040
+TempChange_ssp370_2040
+```
+And Precipitation Change rasters
+```{r}
+PrecChange_ssp245_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/PrecChange/PrecChange245_2040norm.tif")
+PrecChange_ssp370_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/PrecChange/PrecChange370_2040norm.tif")
+
+PrecChange_ssp245_2040
+PrecChange_ssp370_2040
+```
+Can use plot to see
+```{r}
+plot(PrecChange_ssp245_2040)
+```
+
+## Explore Correlations
+
+Can use histograms, look for normality
+```{r}
+par(mfrow = c(3, 3))
+hist(PrecChange_ssp245_2040,
+     breaks = 50,
+     main= "Precip Change ssp245")
+hist(PrecChange_ssp370_2040, 
+     breaks= 50,
+     main= "Precip Change ssp370")
+hist(TempChange_ssp245_2040, 
+     breaks= 50,
+     main= "Temp Change ssp245")
+hist(TempChange_ssp370_2040, 
+     breaks= 50,
+     main= "Temp Change ssp370")
+hist(CTI,
+     breaks= 50,
+     main= "CTI")
+hist(TPI, 
+     breaks= 50,
+     main= "TPI")
+hist(Ruff, 
+     breaks= 50,
+     main= "Roughness")
+hist(logElev,
+     breaks= 50,
+     main= "Log Elevation")
+```
+Or use plots, I will set the transparency very low in order to see the trend within alot of data
+
+I have crated this function for multiple use;
+```{r}
+
+explore_cor <- function(x, y, x_name, y_name, cor.method){
+  Lr <- lm(values(y) ~ values(x))
+  
+  plot(values(x), values(y),
+     xlab= x_name,
+     ylab= y_name,
+     cex= 0.4,
+     col = rgb(red = 0, green = 0, blue = 1, alpha = 0.005)
+     ) +
+  abline(Lr_1, col="black")
+  
+  cor.test(values(x), values(y), method= cor.method) 
+
+}
+
+```
+
+0) Temp Change ssp245: Elevation
+```{r}
+explore_cor(x= logElev, y= TempChange_ssp245_2040, 
+            x_name= "log transformed Elevation", 
+            y_name= "Temperature Change, Current - 2041 ssp245", 
+            cor.method = 'spearman')
+
+# rho = -0.2703917, p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
+```
+
+1) Temp Change ssp245: CTI
+```{r}
+explore_cor(x= CTI, y= TempChange_ssp245_2040, 
+            x_name= "Wetness Index (CTI)", 
+            y_name= "Temperature Change, Current - 2041 ssp245", 
+            cor.method = 'spearman')
+
+# rho = -0.2703917, p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
+```
+
+
+2) Temp Change ssp370: CTI
+```{r}
+plot(values(logElev), values(TempChange_ssp245_2040),
+     xlab= "Log Elev",
+     ylab= "Temperature Change, Current - 2041 ssp245",
+     cex= 0.4,
+     col = rgb(red = 0, green = 0, blue = 1, alpha = 0.005)
+     ) 
+
+# rho = -0.2820622 , p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
+```
+
+
+3) Temp Change ssp240: TPI
+```{r}
+explore_cor(x= TPI, y= TempChange_ssp370_2040, 
+            x_name= "TPI", 
+            y_name= "Temperature Change, Current - 2041 ssp240", 
+            cor.method = 'spearman')
+
+# rho = -0.2820622 , p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
+
+```
+
+
+
+
+
+
+
+
+
+```
+
+```{r}
+plot(values(logElev), values(TempChange_ssp245_2040),
+     xlab= "Log Elev",
+     ylab= "Temperature Change, Current - 2041 ssp245",
+     cex= 0.4,
+     col = rgb(red = 0, green = 0, blue = 1, alpha = 0.005)
+     ) 
+```
+### saving for backup
+
+Backup skeleton of explore.cor function
+```{r}
+#make a linear regression or us to view what the line would look like
+Lr_1 <- lm(values(TempChange_ssp245_2040) ~ values(logElev))
+Lr_1
+
+#Plot the data and line to visualise
+plot(values(logElev), values(TempChange_ssp245_2040),
+     xlab= "Log Elev",
+     ylab= "Temperature Change, Current - 2041 ssp245",
+     cex= 0.4,
+     col = rgb(red = 0, green = 0, blue = 1, alpha = 0.005)
+     ) 
+
+#perform correlation test, as the histograms are not very normal, we will use non-parametric
+cor.test(values(CTI), values(TempChange_ssp245_2040), method= 'spearman') 
+
+# rho = -0.2703917, p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
+
+```
+
+
+
+
+```{r}
+
+```
+```{r}
+
+```

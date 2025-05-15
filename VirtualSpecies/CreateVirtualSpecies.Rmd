@@ -18,16 +18,18 @@ library(rworldmap)
 library(terra)
 library(raster)
 library(dplyr)
+library(here)
+library(spatialEco)
 ```
 
 
 ## 1) Load Input Layers
 
-```{r}
+```{r Load input layers}
 #Load as SpatRaster
-Elevation <- rast("C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Elev_nibbled_jenk.tif")
-MeanTemp <- rast("C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/BIO1_30s_now.tif")
-AnnualPrec <- rast("C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/BIO12_30s_now.tif")
+Elevation <- rast(here('VirtualSpecies', 'inputData_forVS', 'Elev_nibbled_jenk.tif'))
+MeanTemp <- rast(here('VirtualSpecies', 'inputData_forVS', 'BIO1_30s_now.tif'))
+AnnualPrec <- rast(here('VirtualSpecies', 'inputData_forVS', 'BIO12_30s_now.tif'))
 
 #Make our objects into a *string of layers*, and set more useful names
 EnvLayers <- c(Elevation, MeanTemp, AnnualPrec)
@@ -88,26 +90,12 @@ We should use a consistant way to set prevelence; such as 5% of the total land a
 
 We also need to use a consistant alpha value for the logistic transformation, so that the shape of the probabiltiy of occurence is the same for each VS; meaning the only thing that changes is their preferences.
 
-[DEPRECATED]
-
-```{r}
-Presence_HD <- convertToPA(HSI_HD, 
-                   PA.method = "probability", #here you choose threshold or probability method
-                   prob.method = "linear",
-                   species.prevalence = 0.03, #defines the percentage of land area that will have presence points, thus the software will find the ideal linear relationship that satisfies that
-                   plot = FALSE) 
-
-plotSuitabilityToProba(Presence_HD)
-plot(Presence_HD$pa.raster)
-plot(Presence_HD$suitab.raster)
-```
-
-
 ### Used VS:
 
 #Highland DRY Specialist
+this is the same process, with the addition that we convert the probability occurence raster to presence/asbence
 
-```{r}
+```{r Set HD VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_HD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
                           AnnualPrec = c(fun = 'dnorm', mean = 2601.74, sd = 347.097),
@@ -131,9 +119,10 @@ plotSuitabilityToProba(Presence_HD)
 plot(Presence_HD$pa.raster)
 ```
 
+we can repeat this with all species
 
 #Highland WET Specialist
-```{r}
+```{r Set HW VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_HW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
                           AnnualPrec = c(fun = 'dnorm', mean = 3687.75, sd = 282.767),
@@ -157,7 +146,7 @@ plot(Presence_HW$pa.raster)
 ```
 
 ### High Elevation Generalist
-```{r}
+```{r Set HG VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_HG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
                           AnnualPrec = c(fun = 'dnorm', mean = 3341.1, sd = 590.927),
@@ -182,7 +171,7 @@ plot(Presence_HG$pa.raster)
 ```
 
 ### Low Elevation DRY specialist
-```{r}
+```{r Set LD VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_LD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
                           AnnualPrec = c(fun = 'dnorm', mean = 2496.18, sd = 314.665),
@@ -209,7 +198,7 @@ plot(Presence_LD$pa.raster)
 ```
 
 ### Low Elevation WET specialist
-```{r}
+```{r Set LW VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_LW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
                           AnnualPrec = c(fun = 'dnorm', mean = 3420.59, sd = 331.15),
@@ -237,7 +226,7 @@ plot(Presence_LW$pa.raster)
 
 
 ## Low Elevation Generalist
-```{r}
+```{r Set LG VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_LG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
                           AnnualPrec = c(fun = 'dnorm', mean = 2955.42, sd = 563.852),
@@ -262,72 +251,10 @@ Presence_LG <- convertToPA(HSI_LG,
 plotSuitabilityToProba(Presence_LG)
 plot(Presence_LG$pa.raster)
 ```
-################################################################################
-
-### Sampling Presence/Absence
-
-From the True Presence data, we can sample what will ultimately be the PA which can make up our habitat suitability model. 
-
-# HD
-
-```{r}
-SampledPresence_HD <- sampleOccurrences(Presence_HD,
-                            n = 5500, # The number of points to sample
-                            type = "presence-absence",
-                            sample.prevalence = 500/5500)
-
-```
-
-# HW
-```{r}
-SampledPresence_HW <- sampleOccurrences(Presence_HW,
-                            n = 5500, # The number of points to sample
-                            type = "presence-absence",
-                            sample.prevalence = 500/5500)
-
-```
-
-# HG
-```{r}
-SampledPresence_HG <- sampleOccurrences(Presence_HG,
-                            n = 5500, # The number of points to sample
-                            type = "presence-absence",
-                            sample.prevalence = 500/5500)
-
-```
-
-# LD
-```{r}
-SampledPresence_LD <- sampleOccurrences(Presence_LD,
-                            n = 5500, # The number of points to sample
-                            type = "presence-absence",
-                            sample.prevalence = 500/5500)
-
-```
-
-# LW
-```{r}
-SampledPresence_LW <- sampleOccurrences(Presence_LW,
-                            n = 5500, # The number of points to sample
-                            type = "presence-absence",
-                            sample.prevalence = 500/5500)
-
-```
-
-# LG
-```{r}
-SampledPresence_LG <- sampleOccurrences(Presence_LG,
-                            n = 5500, # The number of points to sample
-                            type = "presence-absence",
-                            sample.prevalence = 500/5500)
-
-SampledPresence_LG
-
-```
 
 ###############################################################################
 
-### Saving for Export to ARCGIS
+### Save the habitat suitability and population area for Export to ARCGIS
 
 This is just to showcase the process. The True Habitat suitability is transformed into a smaller population distribution liklihood (which puts them in the most suitable places, with comparable populations sizes), and these pixel probabilities are used to radnomly draw a Presence Absence True Population. 
 ```{r}
@@ -339,132 +266,451 @@ We will save the VS ('Presence_X') as this contains the habitat suitability rast
 We will also save the suitability raster itself, separately, and the true presence absence, as TIFs.
 Then we will save the sampled presence points as a csv.
 
-```{r}
+```{r save the habitat suitability and PA rasters}
 
 #HD
-save(Presence_HD, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_HD1")
+save(Presence_HD, file = "")
 
-writeRaster(Presence_HD$suitab.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_HD1.tif")
-writeRaster(Presence_HD$pa.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_HD1.tif")
-write.csv(SampledPresence_HD$sample.points, 
-          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_HD1.csv")
+writeRaster(Presence_HD$suitab.raster, "")
+writeRaster(Presence_HD$pa.raster, "")
 
 #HW
-save(Presence_HW, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_HW1")
+save(Presence_HW, file = "")
 
-writeRaster(Presence_HW$suitab.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_HW1.tif")
-writeRaster(Presence_HW$pa.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_HW1.tif")
-write.csv(SampledPresence_HW$sample.points, 
-          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_HW1.csv")
+writeRaster(Presence_HW$suitab.raster, "")
+writeRaster(Presence_HW$pa.raster, "")
 
 #HG
 
-save(Presence_HG, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_HG1")
+save(Presence_HG, file = "")
 
-writeRaster(Presence_HG$suitab.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_HG1.tif")
-writeRaster(Presence_HG$pa.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_HG1.tif")
-write.csv(SampledPresence_HG$sample.points, 
-          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_HG1.csv")
+writeRaster(Presence_HG$suitab.raster, '')
+writeRaster(Presence_HG$pa.raster, '')
 
 #LD
-save(Presence_LD, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_LD1")
+save(Presence_LD, file = "")
 
-writeRaster(Presence_LD$suitab.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_LD1.tif")
-writeRaster(Presence_LD$pa.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_LD1.tif")
-write.csv(SampledPresence_LD$sample.points, 
-          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_LD1.csv")
+writeRaster(Presence_LD$suitab.raster, '')
+writeRaster(Presence_LD$pa.raster, '')
 
 #LW
-save(Presence_LW, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_LW1")
+save(Presence_LW, file = "")
 
-writeRaster(Presence_LW$suitab.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_LW1.tif")
-writeRaster(Presence_LW$pa.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_LW1.tif")
-write.csv(SampledPresence_LW$sample.points, 
-          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_LW1.csv")
+writeRaster(Presence_LW$suitab.raster,'')
+writeRaster(Presence_LW$pa.raster, '')
 
 #LG
-save(Presence_LG, file = "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_VS/VS_LG1")
+save(Presence_LG, file = "")
 
-writeRaster(Presence_LG$suitab.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realhabitatsuitability/Suitability_LG1.tif")
-writeRaster(Presence_LG$pa.raster, 
-            "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_realpresence/RealDist_LG1.tif")
-write.csv(SampledPresence_LG$sample.points, 
-          "C:/Users/shil5756/Documents/Directories/R_directories/Masters_VS_borneo/Saved2/Saved_samplepresence/P_LG1.csv")
-```
-
-### Taking notes
-
-We can also count the population size, for documentation
-```{r}
-#HD
-HD_values <- as.data.frame(na.omit(values(Presence_HD$pa.raster)))
-HD_values <- HD_values %>% rename_at('VSP suitability', ~'PA')
-HD_values
-
-nrow(HD_values) # Number of pixels overall = 858,655
-sum(HD_values$PA == 1) # HD presence pixels = 25,988
-
-#HG
-HG_values <- as.data.frame(na.omit(values(Presence_HG$pa.raster)))
-HG_values <- HG_values %>% rename_at('VSP suitability', ~'PA')
-HG_values
-
-nrow(HG_values)
-sum(HG_values$PA == 1) # HG presence pixels = 79,681
-
-#HW
-HW_values <- as.data.frame(na.omit(values(Presence_HW$pa.raster)))
-HW_values <- HW_values %>% rename_at('VSP suitability', ~'PA')
-HW_values
-
-nrow(HW_values)
-sum(HW_values$PA == 1) # HW presence pixels = 55,894
-
-#LD
-LD_values <- as.data.frame(na.omit(values(Presence_LD$pa.raster)))
-LD_values <- LD_values %>% rename_at('lyr.1', ~'PA')
-LD_values
-
-nrow(LD_values)
-sum(LD_values$PA == 1) # LD presence pixels = 86,638
-
-#LG
-LG_values <- as.data.frame(na.omit(values(Presence_LG$pa.raster)))
-LG_values <- LG_values %>% rename_at('lyr.1', ~'PA')
-LG_values
-
-nrow(LG_values)
-sum(LG_values$PA == 1) # LG presence pixels = 85,777
-
-#LW
-LW_values <- as.data.frame(na.omit(values(Presence_LW$pa.raster)))
-LW_values <- LW_values %>% rename_at('lyr.1', ~'PA')
-LW_values
-
-nrow(LW_values)
-sum(LW_values$PA == 1) # LG presence pixels = 85,818
+writeRaster(Presence_LG$suitab.raster, "")
+writeRaster(Presence_LG$pa.raster, '')
 
 ```
 
+################################################################################
 
-###############################################################################
+### Sampling Presence/Absence
+
+Now we want to create the start/end points (population sites) used in the connecitivty graphing. If we were to set this at, say, 1000 points, the species with smaller range would be more concentrated. Instead, I specify no sample size of presences and just sample 6,000 points (pesence or absence) randomly. This will cause our detected occurences to reflect the size of the population beneath.
+
+as such;
+```{r sample detected occurence points, HD}
+SampledOcc_HD <- sampleOccurrences(HD_perfectDIST, 
+                                        n = 6000, 
+                                        type = "presence-absence")
+```
+
+And save these coordinates (as P_HD2.csv) so we can look at them:
+```{r save PA points}
+write.csv(SampledOcc_HD$sample.points, "")
+```
+
+#Clean the PA points for connectivity analysis 
+
+Now we can load and interrogate them. Here I take a few steps to format these points for input into CoLa.
+
+```{r Load and Format PA points}
+#Load the coords
+HD_coords2 <- read.csv(here('VirtualSpecies', 'inputData_forVS', 'PApoints', 'P_HD2.csv'), header = TRUE, stringsAsFactors = FALSE)
+
+#R has read the ID column as 'X' so we can clean that out
+HD_coords2 <- subset(HD_coords2, select = -X )
+
+#Extract() expects coord only, so we will make that
+HD_coords2_only <- subset(HD_coords2, select = c(x, y))
+
+#And lets get the presence points alone
+HD_presenceonly2 <- HD_coords2[HD_coords2$Observed == 1, ]
+
+```
+
+Plot ontop of the HSI:
+```{r plot PA points on habitat suitability}
+# load the perfect HSI raster
+HD_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_HD1.tif'))
+
+#Plot the true HSI
+plot(HD_perfectHSI, main = 'True HSI') +
+  points(HD_presenceonly2, col = 'red', pch = 4, cex = 0.05)
+```
+
+Plot ontop of the true dist
+```{r Plot PA points over the true population}
+#also load the perfect HSI raster
+HD_perfectDIST <- rast(here('VirtualSpecies', 'inputData_forVS', 'PopulationDist', 'RealDist_HD1.tif'))
+
+#Plot the true dist
+plot(HD_perfectDIST, main = 'True HSI') +
+  points(HD_presenceonly2, col = 'red', pch = 4, cex = 0.05)
+```
+
+We can see that the presence points (red) are much less dense (underdispersed), but we should count them to see if this is a workable dataset to habitat suitability model with.
+
+```{r Count detected occurences}
+nrow(HD_coords2) #6,000
+nrow(HD_presenceonly2) #183
+```
+
+Now, we need to save the presence only dataset as a .XY file for input into connectivity software (this is the needed input)
+```{r Create PXY file}
+# make a dataset that is only the XY coordinates of presence
+HD_PXY <- subset(HD_presenceonly2, select = c(x, y))
+
+#And save as CSV
+write.csv(HD_PXY, 
+          "/PXY_HD.csv")
+```
+
+One assumption CoLa needs is that the coords fit within the raster extent
+```{r retrieve extent}
+# Get the raster's extent
+HD_resistance_ext <- extent(HD_resistanceASC)
+```
+
+We can see here that they do:
+```{r check that P points lie within extent}
+#check the coord extent
+min_x <- min(HD_PXY$x)
+max_x <- max(HD_PXY$x)
+min_y <- min(HD_PXY$y)
+max_y <- max(HD_PXY$y) # == they do lie within the extent...
+HD_coord_ext <- data.frame(min_x, max_x, min_y, max_y)
+HD_coord_ext
+
+any(is.na(HD_PXY))
+anyNA(HD_resistanceASC)
+```
 
 
+This is the smallest population distribution so, theoretically, will get the smallest sample. But a sample of 167 is not bad.
+
+Lastly, connectivity software often request for the resistance raster in ASCII format. The resistance raster can be made quite simply by loading the habitat suitability into arcgis and using raster calculator to invert, following any inversion method of your choosing. 
+
+This inversion can be done in R as so:
+```{r Create the Resistance Raster}
+#Load the HD HSI raster
+HD_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_HD1.tif'))
+
+HD_invert <- raster.invert(HD_perfectHSI)
+HD_resi <- raster.transformation(HD_invert, trans = "stretch", smin=1, smax= 99)
+
+# Check for NAs using anyNA
+any_na <- anyNA(values(HD_resi))
+if (any_na) {
+  print("There are NA values in the raster")
+} else {
+  print("There are no NA values in the raster")
+}
+
+plot(HD_resi)
+```
+
+You will still have to use raster to ASCII in arcgis. I have saved my ascii files within the github repository for use if needed.
+
+# This process must be repeated to genorate the PXY and Resistance.asci for all species
+
+here I include code with less explanation
+
+## 2) HG
+
+```{r HG PXY and Resistance.asci}
+#Load the popualtion distribution of HG
+HG_perfectDIST <- rast(here('VirtualSpecies', 'inputData_forVS', 'PopulationDist', 'RealDist_HG1.tif'))
+
+#create new better sample
+SampledOcc_HG <- sampleOccurrences(HG_perfectDIST, 
+                                        n = 6000, 
+                                        type = "presence-absence")
+
+#Load the coords
+HG_coords2 <- read.csv(here('VirtualSpecies', 'inputData_forVS', 'PApoints', 'P_HG2.csv'), header = TRUE, stringsAsFactors = FALSE)
+
+#R has read the ID column as 'X' so we can clean that out
+HG_coords2 <- subset(HG_coords2, select = -X )
+
+#Extract() expects coord only, so we will make that
+HG_coords2_only <- subset(HG_coords2, select = c(x, y))
+
+#And lets get the presence points alone
+HG_presenceonly2 <- HG_coords2[HG_coords2$Observed == 1, ]
+
+#also load the perfect HSI raster
+HG_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_HG1.tif'))
+
+#Plot the true HSI
+plot(HG_perfectHSI, main = 'True HSI') +
+  points(HG_presenceonly2, col = 'red', pch = 4, cex = 0.05)
+
+#And calculate the sample size
+nrow(HG_coords2) #6,000
+nrow(HG_presenceonly2) #505
+
+# make a dataset that is only the XY coordinates of presence
+HG_PXY <- subset(HG_presenceonly2, select = c(x, y))
+
+#Load the HG HSI raster
+HG_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_HG1.tif'))
+
+HG_invert <- raster.invert(HG_perfectHSI)
+HG_resi <- raster.transformation(HG_invert, trans = "stretch", smin=1, smax= 99)
+
+# Check for NAs using anyNA
+any_na <- anyNA(values(HG_resi))
+if (any_na) {
+  print("There are NA values in the raster")
+} else {
+  print("There are no NA values in the raster")
+}
+
+plot(HG_resi)
+```
+
+## 3) HW
+
+```{r HW PXY and Resistance.asci}
+#Load the popualtion distribution of HW
+HW_perfectDIST <- rast(here('VirtualSpecies', 'inputData_forVS', 'PopulationDist', 'RealDist_HW1.tif'))
+
+#create new better sample
+SampledOcc_HW <- sampleOccurrences(HW_perfectDIST, 
+                                        n = 6000, 
+                                        type = "presence-absence")
+
+#Load the coords
+HW_coords2 <- read.csv(here('VirtualSpecies', 'inputData_forVS', 'PApoints', 'P_HW2.csv'), header = TRUE, stringsAsFactors = FALSE)
+
+#R has read the ID column as 'X' so we can clean that out
+HW_coords2 <- subset(HW_coords2, select = -X )
+
+#Extract() expects coord only, so we will make that
+HW_coords2_only <- subset(HW_coords2, select = c(x, y))
+
+#And lets get the presence points alone
+HW_presenceonly2 <- HW_coords2[HW_coords2$Observed == 1, ]
+
+#also load the perfect HSI raster
+HW_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_HW1.tif'))
+
+#Plot the true HSI
+plot(HW_perfectHSI, main = 'True HSI') +
+  points(HW_presenceonly2, col = 'red', pch = 4, cex = 0.05)
+
+#And calculate the sample size
+nrow(HW_coords2) #6,000
+nrow(HW_presenceonly2) #505
+
+# make a dataset that is only the XY coordinates of presence
+HW_PXY <- subset(HW_presenceonly2, select = c(x, y))
+
+#Load the HW HSI raster
+HW_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_HW1.tif'))
+
+HW_invert <- raster.invert(HW_perfectHSI)
+HW_resi <- raster.transformation(HW_invert, trans = "stretch", smin=1, smax= 99)
+
+# Check for NAs using anyNA
+any_na <- anyNA(values(HW_resi))
+if (any_na) {
+  print("There are NA values in the raster")
+} else {
+  print("There are no NA values in the raster")
+}
+
+plot(HW_resi)
+```
 
 
+## 4) LD
 
+```{r LD PXY and Resistance.asci}
+#Load the popualtion distribution of LD
+LD_perfectDIST <- rast(here('VirtualSpecies', 'inputData_forVS', 'PopulationDist', 'RealDist_LD1.tif'))
 
+#create new better sample
+SampledOcc_LD <- sampleOccurrences(LD_perfectDIST, 
+                                        n = 6000, 
+                                        type = "presence-absence")
+
+#Load the coords
+LD_coords2 <- read.csv(here('VirtualSpecies', 'inputData_forVS', 'PApoints', 'P_LD2.csv'), header = TRUE, stringsAsFactors = FALSE)
+
+#R has read the ID column as 'X' so we can clean that out
+LD_coords2 <- subset(LD_coords2, select = -X )
+
+#Extract() expects coord only, so we will make that
+LD_coords2_only <- subset(LD_coords2, select = c(x, y))
+
+#And lets get the presence points alone
+LD_presenceonly2 <- LD_coords2[LD_coords2$Observed == 1, ]
+
+#also load the perfect HSI raster
+LD_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_LD1.tif'))
+
+#Plot the true HSI
+plot(LD_perfectHSI, main = 'True HSI') +
+  points(LD_presenceonly2, col = 'red', pch = 4, cex = 0.05)
+
+#And calculate the sample size
+nrow(LD_coords2) #6,000
+nrow(LD_presenceonly2) #505
+
+# make a dataset that is only the XY coordinates of presence
+LD_PXY <- subset(LD_presenceonly2, select = c(x, y))
+
+#Load the LD HSI raster
+LD_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_LD1.tif'))
+
+LD_invert <- raster.invert(LD_perfectHSI)
+LD_resi <- raster.transformation(LD_invert, trans = "stretch", smin=1, smax= 99)
+
+# Check for NAs using anyNA
+any_na <- anyNA(values(LD_resi))
+if (any_na) {
+  print("There are NA values in the raster")
+} else {
+  print("There are no NA values in the raster")
+}
+
+plot(LD_resi)
+```
+
+## 5) LG
+
+```{r LG PXY and Resistance.asci}
+#Load the popualtion distribution of LG
+LG_perfectDIST <- rast(here('VirtualSpecies', 'inputData_forVS', 'PopulationDist', 'RealDist_LG1.tif'))
+
+#create new better sample
+SampledOcc_LG <- sampleOccurrences(LG_perfectDIST, 
+                                        n = 6000, 
+                                        type = "presence-absence")
+
+#Load the coords
+LG_coords2 <- read.csv(here('VirtualSpecies', 'inputData_forVS', 'PApoints', 'P_LG2.csv'), header = TRUE, stringsAsFactors = FALSE)
+
+#R has read the ID column as 'X' so we can clean that out
+LG_coords2 <- subset(LG_coords2, select = -X )
+
+#Extract() expects coord only, so we will make that
+LG_coords2_only <- subset(LG_coords2, select = c(x, y))
+
+#And lets get the presence points alone
+LG_presenceonly2 <- LG_coords2[LG_coords2$Observed == 1, ]
+
+#also load the perfect HSI raster
+LG_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_LG1.tif'))
+
+#Plot the true HSI
+plot(LG_perfectHSI, main = 'True HSI') +
+  points(LG_presenceonly2, col = 'red', pch = 4, cex = 0.05)
+
+#And calculate the sample size
+nrow(LG_coords2) #6,000
+nrow(LG_presenceonly2) #505
+
+# make a dataset that is only the XY coordinates of presence
+LG_PXY <- subset(LG_presenceonly2, select = c(x, y))
+
+#Load the LG HSI raster
+LG_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_LG1.tif'))
+
+LG_invert <- raster.invert(LG_perfectHSI)
+LG_resi <- raster.transformation(LG_invert, trans = "stretch", smin=1, smax= 99)
+
+# Check for NAs using anyNA
+any_na <- anyNA(values(LG_resi))
+if (any_na) {
+  print("There are NA values in the raster")
+} else {
+  print("There are no NA values in the raster")
+}
+
+plot(LG_resi)
+```
+
+## 6) LW
+
+```{r LW PXY and Resistance.asci}
+#Load the popualtion distribution of LW
+LW_perfectDIST <- rast(here('VirtualSpecies', 'inputData_forVS', 'PopulationDist', 'RealDist_LW1.tif'))
+
+#create new better sample
+SampledOcc_LW <- sampleOccurrences(LW_perfectDIST, 
+                                        n = 6000, 
+                                        type = "presence-absence")
+
+#Load the coords
+LW_coords2 <- read.csv(here('VirtualSpecies', 'inputData_forVS', 'PApoints', 'P_LW2.csv'), header = TRUE, stringsAsFactors = FALSE)
+
+#R has read the ID column as 'X' so we can clean that out
+LW_coords2 <- subset(LW_coords2, select = -X )
+
+#Extract() expects coord only, so we will make that
+LW_coords2_only <- subset(LW_coords2, select = c(x, y))
+
+#And lets get the presence points alone
+LW_presenceonly2 <- LW_coords2[LW_coords2$Observed == 1, ]
+
+#also load the perfect HSI raster
+LW_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_LW1.tif'))
+
+#Plot the true HSI
+plot(LW_perfectHSI, main = 'True HSI') +
+  points(LW_presenceonly2, col = 'red', pch = 4, cex = 0.05)
+
+#And calculate the sample size
+nrow(LW_coords2) #6,000
+nrow(LW_presenceonly2) #505
+
+# make a dataset that is only the XY coordinates of presence
+LW_PXY <- subset(LW_presenceonly2, select = c(x, y))
+
+#Load the LW HSI raster
+LW_perfectHSI <- rast(here('VirtualSpecies', 'inputData_forVS', 'HabitatSuitability', 'Suitability_LW1.tif'))
+
+LW_invert <- raster.invert(LW_perfectHSI)
+LW_resi <- raster.transformation(LW_invert, trans = "stretch", smin=1, smax= 99)
+
+# Check for NAs using anyNA
+any_na <- anyNA(values(LW_resi))
+if (any_na) {
+  print("There are NA values in the raster")
+} else {
+  print("There are no NA values in the raster")
+}
+
+plot(LW_resi)
+```
+
+Once you have taken these into ARCGIS to rpoduce resitance asciis, you have the inpit data for corridor netowrking for the *current* networks.
+
+Yes that means we still have to repeat this entire process after applying the virtual species to a future scenario!
+
+################################################################################
+
+### Genorating inputs for future networks
+
+First we need to load the future environmental data; the projected temperature and precipitaiton. Before loading these, you must ensure they have the same extent (in my case Borneo) and pixel dimensions in order for everything to work together. 
 
 
 
