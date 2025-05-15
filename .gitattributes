@@ -3,3 +3,4 @@ StrengthAnalysis/SavedModels/*.rds filter=lfs diff=lfs merge=lfs -text
 data/analysis_data/VariableLayers/Zone filter=lfs diff=lfs merge=lfs -text
 .asc filter=lfs diff=lfs merge=lfs -text
 .ASC filter=lfs diff=lfs merge=lfs -text
+data filter=lfs diff=lfs merge=lfs -text
