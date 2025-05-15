@@ -5,6 +5,8 @@ date: "2024-10-29"
 output: html_document
 ---
 
+This rmd file entails the preliminary finding that guided virtual species creation; that precipition alteration due to climate change increases with elevation, and so does temperature to a lesser extent. This was used to guide the specialism and generalism of VS. 
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
@@ -201,12 +203,3 @@ cor.test(values(CTI), values(TempChange_ssp245_2040), method= 'spearman')
 
 ```
 
-
-
-
-```{r}
-
-```
-```{r}
-
-```
