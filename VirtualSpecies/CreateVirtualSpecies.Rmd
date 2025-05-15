@@ -27,9 +27,9 @@ library(spatialEco)
 
 ```{r Load input layers}
 #Load as SpatRaster
-Elevation <- rast(here('VirtualSpecies', 'inputData_forVS', 'Elev_nibbled_jenk.tif'))
-MeanTemp <- rast(here('VirtualSpecies', 'inputData_forVS', 'BIO1_30s_now.tif'))
-AnnualPrec <- rast(here('VirtualSpecies', 'inputData_forVS', 'BIO12_30s_now.tif'))
+Elevation <- rast(here('VirtualSpecies', 'inputData_forVS', 'CurrentEnvData', 'Elev_nibbled_jenk.tif'))
+MeanTemp <- rast(here('VirtualSpecies', 'inputData_forVS', 'CurrentEnvData', 'BIO1_30s_now.tif'))
+AnnualPrec <- rast(here('VirtualSpecies', 'inputData_forVS', 'CurrentEnvData', 'BIO12_30s_now.tif'))
 
 #Make our objects into a *string of layers*, and set more useful names
 EnvLayers <- c(Elevation, MeanTemp, AnnualPrec)
@@ -711,6 +711,326 @@ Yes that means we still have to repeat this entire process after applying the vi
 ### Genorating inputs for future networks
 
 First we need to load the future environmental data; the projected temperature and precipitaiton. Before loading these, you must ensure they have the same extent (in my case Borneo) and pixel dimensions in order for everything to work together. 
+
+```{r Load projected scenario enviornmental data}
+#ssp126
+MeanTemp_126_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio1_126_y21.tif'))
+AnnualPrec_126_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio12_126_y21.tif'))
+#then combine them into a single layer, with reasonable names
+EnvLayers_126_2021 <- c(Elevation, MeanTemp_126_2021, AnnualPrec_126_2021)
+names(EnvLayers_126_2021) <- paste0(c("Elevation", "MeanTemp", "AnnualPrec"))
+
+#ssp245
+MeanTemp_245_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio1_245_y21.tif'))
+AnnualPrec_245_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio1_245_y21.tif'))
+EnvLayers_245_2021 <- c(Elevation, MeanTemp_245_2021, AnnualPrec_245_2021)
+names(EnvLayers_245_2021) <- paste0(c("Elevation", "MeanTemp", "AnnualPrec"))
+
+#ssp585
+MeanTemp_585_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio1_585_y21.tif'))
+AnnualPrec_585_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio1_585_y21.tif'))
+EnvLayers_585_2021 <- c(Elevation, MeanTemp_585_2021, AnnualPrec_585_2021)
+names(EnvLayers_585_2021) <- paste0(c("Elevation", "MeanTemp", "AnnualPrec"))
+```
+
+Load all the VS if needed:
+```{r relaod ISF to reapply to future}
+ISF_HD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
+                          AnnualPrec = c(fun = 'dnorm', mean = 2601.74, sd = 347.097),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
+
+ISF_HG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
+                          AnnualPrec = c(fun = 'dnorm', mean = 3341.1, sd = 590.927),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
+
+ISF_HW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
+                          AnnualPrec = c(fun = 'dnorm', mean = 3687.75, sd = 282.767),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
+
+ISF_LD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
+                          AnnualPrec = c(fun = 'dnorm', mean = 2496.18, sd = 314.665),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = 70))
+
+ISF_LG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
+                          AnnualPrec = c(fun = 'dnorm', mean = 2955.42, sd = 563.852),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = 70))
+
+ISF_LW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
+                          AnnualPrec = c(fun = 'dnorm', mean = 3420.59, sd = 331.15),
+                          Elevation = c(fun = 'logisticFun', beta = 479, alpha = 70))
+```
+
+# Now all we need is to make the new Habitat suitability, and use that as a resistance raster
+
+we do not need to make new presence points, as this is a purposeful assumption in our study. However, future research should endevour to model how the the movement of these points may effect corridor spatial dynamics. 
+
+explanation of code is only given in the first instance
+
+1) HD:
+```{r Genorate Habitat Suitability, HD}
+#ssp126
+#genorate the habitat suitability from the new climate layers
+HSI_HD_fut126_2021 <- generateSpFromFun(raster.stack = EnvLayers_126_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HD, 
+                                      plot = TRUE)
+
+#convert this to a presennce absence map. We do not need this, but it allows us to call 'suitab.raster' within it, which is the the best way to access habitat suitability
+HSI_HD_fut126_2021_raster <- convertToPA(HSI_HD_fut126_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+#and save
+writeRaster(HSI_HD_fut126_2021_raster$suitab.raster, 
+            "")
+
+#ssp245
+HSI_HD_fut245_2021 <- generateSpFromFun(raster.stack = EnvLayers_245_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HD, 
+                                      plot = TRUE)
+
+HSI_HD_fut245_2021_raster <- convertToPA(HSI_HD_fut245_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HD_fut245_2021_raster$suitab.raster, 
+            "")
+
+#ssp585
+HSI_HD_fut585_2021 <- generateSpFromFun(raster.stack = EnvLayers_585_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HD, 
+                                      plot = TRUE)
+
+HSI_HD_fut585_2021_raster <- convertToPA(HSI_HD_fut585_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HD_fut585_2021_raster$suitab.raster, 
+            "")
+```
+
+2) HG:
+```{r Genorate Habitat Suitability, HG}
+#ssp126
+HSI_HG_fut126_2021 <- generateSpFromFun(raster.stack = EnvLayers_126_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HG, 
+                                      plot = TRUE)
+
+HSI_HG_fut126_2021_raster <- convertToPA(HSI_HG_fut126_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HG_fut126_2021_raster$suitab.raster, 
+            "")
+
+#ssp245
+HSI_HG_fut245_2021 <- generateSpFromFun(raster.stack = EnvLayers_245_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HG, 
+                                      plot = TRUE)
+
+HSI_HG_fut245_2021_raster <- convertToPA(HSI_HG_fut245_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HG_fut245_2021_raster$suitab.raster, 
+            "")
+
+#ssp585
+HSI_HG_fut585_2021 <- generateSpFromFun(raster.stack = EnvLayers_585_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HG, 
+                                      plot = TRUE)
+
+HSI_HG_fut585_2021_raster <- convertToPA(HSI_HG_fut585_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HG_fut585_2021_raster$suitab.raster, 
+            "")
+```
+
+3) HW:
+```{r Genorate Habitat Suitability, HW}
+#ssp126
+HSI_HW_fut126_2021 <- generateSpFromFun(raster.stack = EnvLayers_126_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HW, 
+                                      plot = TRUE)
+
+HSI_HW_fut126_2021_raster <- convertToPA(HSI_HW_fut126_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HW_fut126_2021_raster$suitab.raster, 
+            "")
+
+#ssp245
+HSI_HW_fut245_2021 <- generateSpFromFun(raster.stack = EnvLayers_245_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HW, 
+                                      plot = TRUE)
+
+HSI_HW_fut245_2021_raster <- convertToPA(HSI_HW_fut245_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HW_fut245_2021_raster$suitab.raster, 
+            "")
+
+#ssp585
+HSI_HW_fut585_2021 <- generateSpFromFun(raster.stack = EnvLayers_585_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_HW, 
+                                      plot = TRUE)
+
+HSI_HW_fut585_2021_raster <- convertToPA(HSI_HW_fut585_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_HW_fut585_2021_raster$suitab.raster, 
+            "")
+```
+
+4) LD:
+```{r Genorate Habitat Suitability, LD}
+#ssp126
+HSI_LD_fut126_2021 <- generateSpFromFun(raster.stack = EnvLayers_126_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LD, 
+                                      plot = TRUE)
+
+HSI_LD_fut126_2021_raster <- convertToPA(HSI_LD_fut126_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LD_fut126_2021_raster$suitab.raster, 
+            "")
+
+#ssp245
+HSI_LD_fut245_2021 <- generateSpFromFun(raster.stack = EnvLayers_245_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LD, 
+                                      plot = TRUE)
+
+HSI_LD_fut245_2021_raster <- convertToPA(HSI_LD_fut245_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LD_fut245_2021_raster$suitab.raster, 
+            "")
+
+#ssp585
+HSI_LD_fut585_2021 <- generateSpFromFun(raster.stack = EnvLayers_585_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LD, 
+                                      plot = TRUE)
+
+HSI_LD_fut585_2021_raster <- convertToPA(HSI_LD_fut585_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LD_fut585_2021_raster$suitab.raster, 
+            "")
+```
+
+5) LG:
+```{r  Genorate Habitat Suitability, LG}
+#ssp126
+HSI_LG_fut126_2021 <- generateSpFromFun(raster.stack = EnvLayers_126_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LG, 
+                                      plot = TRUE)
+
+HSI_LG_fut126_2021_raster <- convertToPA(HSI_LG_fut126_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LG_fut126_2021_raster$suitab.raster, 
+            "")
+
+#ssp245
+HSI_LG_fut245_2021 <- generateSpFromFun(raster.stack = EnvLayers_245_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LG, 
+                                      plot = TRUE)
+
+HSI_LG_fut245_2021_raster <- convertToPA(HSI_LG_fut245_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LG_fut245_2021_raster$suitab.raster, 
+            "")
+
+#ssp585
+HSI_LG_fut585_2021 <- generateSpFromFun(raster.stack = EnvLayers_585_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LG, 
+                                      plot = TRUE)
+
+HSI_LG_fut585_2021_raster <- convertToPA(HSI_LG_fut585_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LG_fut585_2021_raster$suitab.raster, 
+            "")
+```
+
+6) LW:
+```{r  Genorate Habitat Suitability, LW}
+#ssp126
+HSI_LW_fut126_2021 <- generateSpFromFun(raster.stack = EnvLayers_126_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LW, 
+                                      plot = TRUE)
+
+HSI_LW_fut126_2021_raster <- convertToPA(HSI_LW_fut126_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LW_fut126_2021_raster$suitab.raster, 
+            "")
+
+#ssp245
+HSI_LW_fut245_2021 <- generateSpFromFun(raster.stack = EnvLayers_245_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LW, 
+                                      plot = TRUE)
+
+HSI_LW_fut245_2021_raster <- convertToPA(HSI_LW_fut245_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LW_fut245_2021_raster$suitab.raster, 
+            "")
+
+#ssp585
+HSI_LW_fut585_2021 <- generateSpFromFun(raster.stack = EnvLayers_585_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 
+                                      parameters = ISF_LW, 
+                                      plot = TRUE)
+
+HSI_LW_fut585_2021_raster <- convertToPA(HSI_LW_fut585_2021, 
+                                         PA.method = "probability", 
+                                         prob.method = "linear",
+                                         plot = TRUE) 
+
+writeRaster(HSI_LW_fut585_2021_raster$suitab.raster, 
+            "")
+```
+
+These can be converted into resistance in R, but I reccomend doing so using the native tools in arcgis for conversion. This is because you will have to resample the rasters anyway and ensure they conform in extent, crs, projection, and pixel dimensions. 
+
+Once done so, you can make a 'ConnectivityAlgorithm_inputs' folder. It needs the resitance raster in .asci, and the Presence only points (usually in .XY, or .csv), but may vary depending on the software. 
+
+### Conclusion
+
+Upon doing so, you can now compile inputs for both baseline and future scenarios, allowing you to genorate the baseline and comparison corridor networks. I have supplied my ColA input folders in the 'ConnectivityAlgorithm_inputs' folder in VirtualSpecies. This is the output of this workpackage.
+
+For use of CoLa, please see their available guides. 
+
 
 
 
