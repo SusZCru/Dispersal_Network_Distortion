@@ -6,13 +6,15 @@ output: html_document
 ---
 
 In this code we start with the creation of virtual species, and use these to genorate resistance rasters and population presence points; the inputs for connectivity analysis. 
+As in the rest of the repository, #explanations will only be shown in first instance of codes use
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 Install the packages, and library. Library the other dependencies.
-```{r}
+```{r isntall packages}
+#use isntall.packages() if needed
 library(virtualspecies)
 library(ade4)
 library(dismo)
@@ -28,7 +30,7 @@ library(spatialEco)
 ## 1) Load Input Layers
 
 ```{r Load input layers}
-#Load as SpatRaster
+#Load enviornemntal layers as SpatRaster
 Elevation <- rast(here('VirtualSpecies', 'inputData_forVS', 'CurrentEnvData', 'Elev_nibbled_jenk.tif'))
 MeanTemp <- rast(here('VirtualSpecies', 'inputData_forVS', 'CurrentEnvData', 'BIO1_30s_now.tif'))
 AnnualPrec <- rast(here('VirtualSpecies', 'inputData_forVS', 'CurrentEnvData', 'BIO12_30s_now.tif'))
@@ -71,7 +73,7 @@ Lowland Gen  = 2955.42 (range; 1572-4310, sd; 563.852) *LG*
 
 prefers temperatures of 23.07* (dnorm), precipitation around 2601.74 l/yr (dnorm), and elevations above 479m from sea level (sigmoidal relationship is most appropriate). 
 
-```{r}
+```{r example VS genoration}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_HD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
                           AnnualPrec = c(fun = 'dnorm', mean = 2601.74, sd = 347.097),
@@ -143,6 +145,7 @@ Presence_HW <- convertToPA(HSI_HW,
                    prob.method = "linear", a = 1, b = 0, 
                    plot = FALSE) 
 
+#view
 plotSuitabilityToProba(Presence_HW)
 plot(Presence_HW$pa.raster)
 ```
@@ -259,7 +262,8 @@ plot(Presence_LG$pa.raster)
 ### Save the habitat suitability and population area for Export to ARCGIS
 
 This is just to showcase the process. The True Habitat suitability is transformed into a smaller population distribution liklihood (which puts them in the most suitable places, with comparable populations sizes), and these pixel probabilities are used to radnomly draw a Presence Absence True Population. 
-```{r}
+```{r view the three raster outputs}
+#view
 plot(Presence_LW$suitab.raster)
 plot(Presence_LW$probability.of.occurrence)
 plot(Presence_LW$pa.raster)
@@ -269,7 +273,7 @@ We will also save the suitability raster itself, separately, and the true presen
 Then we will save the sampled presence points as a csv.
 
 ```{r save the habitat suitability and PA rasters}
-
+#use your own saving structure
 #HD
 save(Presence_HD, file = "")
 
@@ -317,6 +321,7 @@ Now we want to create the start/end points (population sites) used in the connec
 
 as such;
 ```{r sample detected occurence points, HD}
+#sample occurence withotu specifying a ratio of Presence to Absence
 SampledOcc_HD <- sampleOccurrences(HD_perfectDIST, 
                                         n = 6000, 
                                         type = "presence-absence")
@@ -324,6 +329,7 @@ SampledOcc_HD <- sampleOccurrences(HD_perfectDIST,
 
 And save these coordinates (as P_HD2.csv) so we can look at them:
 ```{r save PA points}
+#save the presence and absence points
 write.csv(SampledOcc_HD$sample.points, "")
 ```
 
@@ -399,6 +405,7 @@ max_y <- max(HD_PXY$y) # == they do lie within the extent...
 HD_coord_ext <- data.frame(min_x, max_x, min_y, max_y)
 HD_coord_ext
 
+#ensure there are no NAs
 any(is.na(HD_PXY))
 anyNA(HD_resistanceASC)
 ```
@@ -424,6 +431,7 @@ if (any_na) {
   print("There are no NA values in the raster")
 }
 
+#view
 plot(HD_resi)
 ```
 
@@ -715,6 +723,7 @@ Yes that means we still have to repeat this entire process after applying the vi
 First we need to load the future environmental data; the projected temperature and precipitaiton. Before loading these, you must ensure they have the same extent (in my case Borneo) and pixel dimensions in order for everything to work together. 
 
 ```{r Load projected scenario enviornmental data}
+#repeat above loading process with projected scenario environmental data
 #ssp126
 MeanTemp_126_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio1_126_y21.tif'))
 AnnualPrec_126_2021 <- rast(here('VirtualSpecies', 'inputData_forVS', 'FutureEnvData', 'Bio12_126_y21.tif'))
@@ -737,6 +746,7 @@ names(EnvLayers_585_2021) <- paste0(c("Elevation", "MeanTemp", "AnnualPrec"))
 
 Load all the VS if needed:
 ```{r relaod ISF to reapply to future}
+#reload VS
 ISF_HD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
                           AnnualPrec = c(fun = 'dnorm', mean = 2601.74, sd = 347.097),
                           Elevation = c(fun = 'logisticFun', beta = 479, alpha = -70))
@@ -785,6 +795,8 @@ HSI_HD_fut126_2021_raster <- convertToPA(HSI_HD_fut126_2021,
 #and save
 writeRaster(HSI_HD_fut126_2021_raster$suitab.raster, 
             "")
+
+#Repeat for all scenarios
 
 #ssp245
 HSI_HD_fut245_2021 <- generateSpFromFun(raster.stack = EnvLayers_245_2021[[c("MeanTemp", "AnnualPrec", "Elevation")]], 

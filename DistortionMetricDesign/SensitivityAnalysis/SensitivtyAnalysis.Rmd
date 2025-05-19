@@ -5,14 +5,15 @@ date: "2025-01-20"
 output: html_document
 ---
 
-This code entails the sensitivty analysis and graphs produced in the supplment of our study. 
+This code entails the sensitivty analysis and graphs produced in the supplement of our study. This analysis aims to produce histograms of the data produced by the different arbitrary strength banding, as well as plot computaiton time. As with all the repository, #explanations will only be shown on first instance of the code's use.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
 #Load required packages
-```{r}
+```{r load pakcages}
+#use install.packages() if needed
 library(terra)
 library(ggplot2)
 library(gridExtra)
@@ -21,7 +22,9 @@ library(here)
 ```
 
 #functions
-```{r}
+
+```{r Load functions}
+#this function was used to save png images, though saving is not shown in this public facing code
 save_figure <- function(Figure_to_save,
                                   filename, width, height, res, scaling){
   agg_png(filename, 
@@ -36,11 +39,14 @@ save_figure <- function(Figure_to_save,
 }
 ```
 
+### Part 1: create the data
+
 ##Import the band 1 metric to test
 I am importing as tif
 
-```{r}
-band1TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\Band1.tif")
+```{r Load Band 1}
+#load the raster of distrotion vulnerability for each banding structure on the same species (LWshort)
+band1TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'Band1.tif'))
 
 #you can look at the object
 band1TIFF
@@ -51,22 +57,25 @@ plot(band1TIFF)
 ```
 
 But, mainly, we want to save the mean, median, and 2SD
-```{r}
+```{r Calculate Stats, Band1}
+#clean NAs
 band1values <- na.omit(values(band1TIFF))
+#calculate and save mean
 band1mean <- mean(band1values) # = 1.463686
+#calculate and save median
 band1median <- median(band1values) # = 0
+#calculate and save SD
 band1SD <- sd(band1values) # = 6.831418
 
-#and add the computation time
+#and add the computation time, sourced from ArcGis tool report
 band1time <- 40
-
 ```
 
 #Repeat to get values for all the bands
 
 2 band
-```{r}
-band2TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\band2.tif")
+```{r LOad Band 2}
+band2TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'band2.tif'))
 band2values <- na.omit(values(band2TIFF))
 band2mean <- mean(band2values) # = 1.970988
 band2median <- median(band2values) # = 0
@@ -75,8 +84,8 @@ band2time <- 70
 ```
 
 3 band
-```{r}
-band3TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\band3.tif")
+```{r Load Band 3}
+band3TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'band3.tif'))
 band3values <- na.omit(values(band3TIFF))
 band3mean <- mean(band3values) # = 4.8856
 band3median <- median(band3values) # = 0.7585
@@ -85,8 +94,8 @@ band3time <- 77
 ```
 
 4band
-```{r}
-band4TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\band4.tif")
+```{r Load band 4}
+band4TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'band4.tif'))
 band4values <- na.omit(values(band4TIFF))
 band4mean <- mean(band4values) # = 6.3546
 band4median <- median(band4values) # = 1.4470
@@ -95,8 +104,8 @@ band4time <- 97
 ```
 
 5band
-```{r}
-band5TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\band5.tif")
+```{r load band 5}
+band5TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'band5.tif'))
 band5values <- na.omit(values(band5TIFF))
 band5mean <- mean(band5values) 
 band5median <- median(band5values) 
@@ -105,8 +114,8 @@ band5time <- 119
 ```
 
 10band
-```{r}
-band10TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\band10.tif")
+```{r load band 10}
+band10TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'band10.tif'))
 band10values <- na.omit(values(band10TIFF))
 band10mean <- mean(band10values) 
 band10median <- median(band10values) 
@@ -115,8 +124,8 @@ band10time <- 177
 ```
 
 20band
-```{r}
-band20TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\20band.tif")
+```{r load band 20}
+band20TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', '20band.tif'))
 band20values <- na.omit(values(band20TIFF))
 band20mean <- mean(band20values) 
 band20median <- median(band20values) 
@@ -125,8 +134,8 @@ band20time <- 370
 ```
 
 exponential 4 band
-```{r}
-expband4TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\exp4band.tif")
+```{r load 4 band exponential}
+expband4TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'exp4band.tif'))
 expband4values <- na.omit(values(expband4TIFF))
 expband4mean <- mean(expband4values) 
 expband4median <- median(expband4values) 
@@ -135,8 +144,8 @@ expband4time <- 99
 ```
 
 exponential 5 band
-```{r}
-expband5TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\exp5band.tif")
+```{r load 5 band exponential}
+expband5TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'exp5band.tif'))
 expband5values <- na.omit(values(expband5TIFF))
 expband5mean <- mean(expband5values) 
 expband5median <- median(expband5values) 
@@ -145,8 +154,8 @@ expband5time <- 138
 ```
 
 exponential 6 band
-```{r}
-expband6TIFF <- rast("C:\\Users\\shil5756\\Documents\\ConnectivityData_master\\SensitivityAnalysis\\MetricOutputTIFs\\exp6band.tif")
+```{r load 6 band exponential}
+expband6TIFF <- rast(here('DistortionMetricDesign', 'SensitivityAnalysis', 'BandingTest_Outputs', 'exp6band.tif'))
 expband6values <- na.omit(values(expband6TIFF))
 expband6mean <- mean(expband6values) 
 expband6median <- median(expband6values) 
@@ -155,8 +164,8 @@ expband6time <- 148
 ```
 
 #collate the data into a single object so we can plot it
-```{r}
-#Build each column
+```{r Create Single Dataframe}
+#Build each column using c()
 names <- c('1band', '2band', '3band', '4band', '5band', '10band', '20band', 'exp4band', 'exp5band', 'exp6band')
 means <- c(band1mean, band2mean, band3mean, band4mean, band5mean, band10mean, band20mean, expband4mean, expband5mean, expband6mean)
 medians <- c(band1median, band2median, band3median, band4median, band5median, band10median, band20median, expband4median, expband5median, expband6median)
@@ -164,44 +173,35 @@ bandnum <- c(1, 2, 3, 4, 5, 10, 20, 4, 5, 6)
 comptime <- c(band1time, band2time, band3time, band4time, band5time, band10time, band20time, expband4time, expband5time, expband6time)
 metrictype <- c('linear', 'linear', 'linear', 'linear', 'linear', 'linear', 'linear', 'exponential', 'exponential', 'exponential')
 
-#Build the dataframe 
+#Build the dataframe by combining columns
 BandStatsDf <- data.frame(Bandname= names, mean= means, median= medians, bands= bandnum, computation_time= comptime, metric_type= metrictype)
 
 #Set the catagorical variables as catagorical (as 'factor')
 BandStatsDf$metric_type <- factor(BandStatsDf$metric_type, levels = c('exponential', 'linear'))
 ```
 
-plot the means against number of bands
-```{r}
+### Part 2: Comparison Plots
+
+#plot the means against number of bands
+
+```{r Plot means v banding}
+#plot means v banding
 ggplot(BandStatsDf, 
        aes(x = bands, 
            y = mean, 
-           colour = metric_type)) +
+           colour = metric_type)) + #colour by the type; exponential or linear
   geom_point(size = 3) + 
   labs(title = "Sensitivty Analysis of Number of strength bands", 
        x = "Number of Bands", 
        y = "Mean Vulnerability Estimate") +
   theme_linedraw()
 
-#save it
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/Mean_V_Bandnumber.png", width = 3000, height = 2000, res = 300)
-
-ggplot(BandStatsDf, 
-       aes(x = bands, 
-           y = mean, 
-           colour = metric_type)) +
-  geom_point(size = 3) + 
-  labs(title = "Sensitivty Analysis of Number of strength bands", 
-       x = "Number of Bands", 
-       y = "Mean Vulnerability Estimate") +
-  theme_linedraw()
-
-# Close the PNG device to save the file
-dev.off()
+#save it if desired
 ```
 
-plot the medians against number of bands
-```{r}
+# plot the medians against number of bands
+
+```{r plot medians v banding}
 ggplot(BandStatsDf, 
        aes(x = bands, 
            y = median, 
@@ -211,26 +211,11 @@ ggplot(BandStatsDf,
        x = "Number of Bands", 
        y = "Median Vulnerability Estimate") +
   theme_minimal()
-
-#save it
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/Median_V_Bandnumber.png", width = 3000, height = 2000, res = 300)
-
-ggplot(BandStatsDf, 
-       aes(x = bands, 
-           y = median, 
-           colour = metric_type)) +
-  geom_point(size = 3) + 
-  labs(title = "Sensitivty Analysis of Number of strength bands", 
-       x = "Number of Bands", 
-       y = "Median Vulnerability Estimate") +
-  theme_linedraw()
-
-# Close the PNG device to save the file
-dev.off()
 ```
 
-plot the computation time against number of bands
-```{r}
+#plot the computation time against number of bands
+
+```{r plot computation v banding}
 ggplot(BandStatsDf, 
        aes(x = bands, 
            y = computation_time, 
@@ -240,31 +225,16 @@ ggplot(BandStatsDf,
        x = "Number of Bands", 
        y = "Computation Time") +
   theme_minimal()
-
-#save it
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/CompTime_V_Bandnumber.png", width = 3000, height = 2000, res = 300)
-
-ggplot(BandStatsDf, 
-       aes(x = bands, 
-           y = computation_time, 
-           colour = metric_type)) +
-  geom_point(size = 3) + 
-  labs(title = "Sensitivty Analysis of Number of strength bands", 
-       x = "Number of Bands", 
-       y = "Computation Time") +
-  theme_linedraw()
-
-# Close the PNG device to save the file
-dev.off()
 ```
 
-plot the computation time against means
-```{r}
+#plot the computation time against means
+
+```{r plot computation v means}
 ggplot(BandStatsDf, 
        aes(x = mean, 
            y = computation_time, 
            colour = metric_type,
-           size = bands)) +
+           size = bands)) + #here we also want to display band number somehow, here I use size
   geom_point() + 
   labs(title = "Sensitivty Analysis of Number of strength bands", 
        x = "Mean Vulnerability Estimate", 
@@ -272,16 +242,20 @@ ggplot(BandStatsDf,
   theme_minimal()
 ```
 
+### PART 3: Histograms to understand the data
+
 #Explore Histogram
 
 1 Band
-```{r}
+```{r Hist, band 1}
+#view the data
 summary(band1values)
 
+#plot historgram
 ggplot(band1values,
        aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
+  geom_histogram(bins = 100)+ #set the number of bins to aid viewing, but be consistant
+  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+ #include the median and interquartile range
   geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
   geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
   labs(title = "1 Band", 
@@ -290,7 +264,7 @@ ggplot(band1values,
 ```
 
 2 Band
-```{r}
+```{r Hist, band 2}
 summary(band2values)
 
 ggplot(band2values,
@@ -305,7 +279,7 @@ ggplot(band2values,
 ```
 
 3 Band
-```{r}
+```{r Hist, band 3}
 summary(band3values)
 
 ggplot(band3values,
@@ -320,7 +294,7 @@ ggplot(band3values,
 ```
 
 4 Band
-```{r}
+```{r Hist, band 4}
 summary(band4values)
 
 ggplot(band4values,
@@ -335,7 +309,7 @@ ggplot(band4values,
 ```
 
 5 Band
-```{r}
+```{r Hist, band 5}
 summary(band5values)
 
 ggplot(band5values,
@@ -350,7 +324,7 @@ ggplot(band5values,
 ```
 
 10 Band
-```{r}
+```{r Hist, band 10}
 summary(band10values)
 
 ggplot(band10values,
@@ -365,7 +339,7 @@ ggplot(band10values,
 ```
 
 20 Band
-```{r}
+```{r Hist, band 20}
 summary(band20values)
 
 ggplot(band20values,
@@ -380,7 +354,7 @@ ggplot(band20values,
 ```
 
 Exponential 4 Band
-```{r}
+```{r Hist, band 4 exponential}
 summary(expband4values)
 
 ggplot(expband4values,
@@ -395,7 +369,7 @@ ggplot(expband4values,
 ```
 
 Exponential 5 Band
-```{r}
+```{r Hist, band 5 exponential}
 summary(expband5values)
 
 ggplot(expband5values,
@@ -410,7 +384,7 @@ ggplot(expband5values,
 ```
 
 Exponential 6 Band
-```{r}
+```{r Hist, band 6 exponential}
 summary(expband6values)
 
 ggplot(expband6values,
@@ -426,10 +400,13 @@ ggplot(expband6values,
 
 ## Experiment with transformations
 
-```{r}
+there is clearly some influential thing happening with banding structure, but it is hard to see. so we will plot the log response histogram too. 
+
+```{r Log Hist, band 5 exponential}
 # Log transformation (log(x) or log(x + 1) to handle zeros)
 ExpBand5_logvalues <- log(expband5values + 1)  # Use log(x + 1) to avoid log(0)
 
+#plot as before
 ggplot(ExpBand5_logvalues,
        aes(x= Band_1))+
   geom_histogram(bins = 100)+
@@ -441,7 +418,7 @@ ggplot(ExpBand5_logvalues,
        y = "Frequency")
 ```
 
-```{r}
+```{r Log Hist, band 6 exponential}
 # Log transformation (log(x) or log(x + 1) to handle zeros)
 ExpBand6_logvalues <- log(expband6values + 1)  # Use log(x + 1) to avoid log(0)
 
@@ -456,7 +433,7 @@ ggplot(ExpBand6_logvalues,
        y = "Frequency")
 ```
 
-```{r}
+```{r Log Hist, band 10}
 # Log transformation (log(x) or log(x + 1) to handle zeros)
 Band10_logvalues <- log(band10values + 1)  # Use log(x + 1) to avoid log(0)
 
@@ -471,7 +448,7 @@ ggplot(Band10_logvalues,
        y = "Frequency")
 ```
 
-```{r}
+```{r Log Hist, band 20}
 # Log transformation (log(x) or log(x + 1) to handle zeros)
 Band20_logvalues <- log(band20values + 1)  # Use log(x + 1) to avoid log(0)
 
@@ -486,7 +463,7 @@ ggplot(Band20_logvalues,
        y = "Frequency")
 ```
 
-```{r}
+```{r Log Hist, band 5}
 # Log transformation (log(x) or log(x + 1) to handle zeros)
 Band5_logvalues <- log(band5values + 1)  # Use log(x + 1) to avoid log(0)
 
@@ -501,7 +478,7 @@ ggplot(Band5_logvalues,
        y = "Frequency")
 ```
 
-```{r}
+```{r Log Hist, band 4}
 # Log transformation (log(x) or log(x + 1) to handle zeros)
 Band4_logvalues <- log(band4values + 1)  # Use log(x + 1) to avoid log(0)
 
@@ -516,472 +493,7 @@ ggplot(Band4_logvalues,
        y = "Frequency")
 ```
 
-## For comparison, I am going to make panes which have the map, and both historgams 
-
-first get all the log values made
-```{r}
-# Use log(x + 1) to avoid log(0)
-Band1_logvalues <- log(band1values + 1)
-Band2_logvalues <- log(band2values + 1)  
-Band3_logvalues <- log(band3values + 1)  
-Band4_logvalues <- log(band4values + 1)  
-Band5_logvalues <- log(band5values + 1)
-Band10_logvalues <- log(band10values + 1)
-Band20_logvalues <- log(band20values + 1)
-ExpBand4_logvalues <- log(expband4values + 1)
-ExpBand5_logvalues <- log(expband5values + 1)
-ExpBand6_logvalues <- log(expband6values + 1)
-```
-
-1band 
-```{r}
-#save the raster as a dataframe for ggplot to use
-B1map_df <- as.data.frame(band1TIFF, xy = TRUE, na.rm = TRUE)
-colnames(B1map_df)[3] <- "Vulnerability"
-summary(B1map_df)
-
-#ggplot it
-B1map <- ggplot(B1map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "1 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-B1Histogram<- ggplot(band1values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "1 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-B1logHistorgam <- ggplot(Band1_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "1 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedband1.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(B1map, B1Histogram, B1logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-2band
-```{r}
-#save the raster as a dataframe for ggplot to use
-B2map_df <- as.data.frame(band2TIFF, xy = TRUE, na.rm = TRUE)
-colnames(B2map_df)[3] <- "Vulnerability"
-
-#ggplot it
-B2map <- ggplot(B2map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "2 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-B2Histogram<- ggplot(band2values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "2 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-B2logHistorgam <- ggplot(Band2_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "2 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedband2.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(B2map, B2Histogram, B2logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-3band
-```{r}
-#save the raster as a dataframe for ggplot to use
-B3map_df <- as.data.frame(band3TIFF, xy = TRUE, na.rm = TRUE)
-colnames(B3map_df)[3] <- "Vulnerability"
-
-#ggplot it
-B3map <- ggplot(B3map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "3 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-B3Histogram<- ggplot(band3values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "3 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-B3logHistorgam <- ggplot(Band3_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "3 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedband3.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(B3map, B3Histogram, B3logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-4band
-```{r}
-#save the raster as a dataframe for ggplot to use
-B4map_df <- as.data.frame(band4TIFF, xy = TRUE, na.rm = TRUE)
-colnames(B4map_df)[3] <- "Vulnerability"
-
-#ggplot it
-B4map <- ggplot(B4map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "4 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-B4Histogram<- ggplot(band4values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "4 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-B4logHistorgam <- ggplot(Band4_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "4 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedband4.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(B4map, B4Histogram, B4logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-5band
-```{r}
-#save the raster as a dataframe for ggplot to use
-B5map_df <- as.data.frame(band5TIFF, xy = TRUE, na.rm = TRUE)
-colnames(B5map_df)[3] <- "Vulnerability"
-
-#ggplot it
-B5map <- ggplot(B5map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "5 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-B5Histogram<- ggplot(band5values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "5 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-B5logHistorgam <- ggplot(Band5_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "5 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedband5.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(B5map, B5Histogram, B5logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-10band
-```{r}
-#save the raster as a dataframe for ggplot to use
-B10map_df <- as.data.frame(band10TIFF, xy = TRUE, na.rm = TRUE)
-colnames(B10map_df)[3] <- "Vulnerability"
-
-#ggplot it
-B10map <- ggplot(B10map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "10 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-B10Histogram<- ggplot(band10values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "10 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-B10logHistorgam <- ggplot(Band10_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "10 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedband10.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(B10map, B10Histogram, B10logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-
-20band
-```{r}
-#save the raster as a dataframe for ggplot to use
-B20map_df <- as.data.frame(band20TIFF, xy = TRUE, na.rm = TRUE)
-colnames(B20map_df)[3] <- "Vulnerability"
-
-#ggplot it
-B20map <- ggplot(B20map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "20 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-B20Histogram<- ggplot(band20values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "20 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-B20logHistorgam <- ggplot(Band20_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "20 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedband20.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(B20map, B20Histogram, B20logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-exp4band
-```{r}
-#save the raster as a dataframe for ggplot to use
-expB4map_df <- as.data.frame(expband4TIFF, xy = TRUE, na.rm = TRUE)
-colnames(expB4map_df)[3] <- "Vulnerability"
-
-#ggplot it
-expB4map <- ggplot(expB4map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "Exponential 4 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-expB4Histogram<- ggplot(expband4values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "Exponential 4 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-expB4logHistorgam <- ggplot(ExpBand4_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "Exponential 4 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedEXPband4.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(expB4map, expB4Histogram, expB4logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-
-exp5band
-```{r}
-#save the raster as a dataframe for ggplot to use
-expB5map_df <- as.data.frame(expband5TIFF, xy = TRUE, na.rm = TRUE)
-colnames(expB5map_df)[3] <- "Vulnerability"
-
-#ggplot it
-expB5map <- ggplot(expB5map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "Exponential 5 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-expB5Histogram<- ggplot(expband5values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "Exponential 5 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-expB5logHistorgam <- ggplot(ExpBand5_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "Exponential 5 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedEXPband5.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(expB5map, expB5Histogram, expB5logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-exp6band
-```{r}
-#save the raster as a dataframe for ggplot to use
-expB6map_df <- as.data.frame(expband6TIFF, xy = TRUE, na.rm = TRUE)
-colnames(expB6map_df)[3] <- "Vulnerability"
-
-#ggplot it
-expB6map <- ggplot(expB6map_df, aes(x = x, y = y, fill = Vulnerability)) +
-  geom_raster() +  
-  scale_fill_viridis_c(option = 'plasma', trans = 'log') + 
-  coord_equal() +  # Ensures the aspect ratio is equal
-  theme_minimal() +  
-  labs(title = "Exponential 6 Band Vulnerability Output", x = "Longitude", y = "Latitude")
-
-expB6Histogram<- ggplot(expband6values,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "Exponential 6 Band Vulnerability Estimate Distribution", 
-       x = "Vulnerability", 
-       y = "Frequency")
-
-expB6logHistorgam <- ggplot(ExpBand6_logvalues,
-       aes(x= Band_1))+
-  geom_histogram(bins = 100)+
-  geom_vline(aes(xintercept = median(Band_1)), color = "red", linetype = "dashed", size = 0.75)+
-  geom_vline(aes(xintercept = quantile(Band_1, 0.25)), color = "green", linetype = "dotted", size = 1) +
-  geom_vline(aes(xintercept = quantile(Band_1, 0.75)), color = "blue", linetype = "dotted", size = 1) +
-  labs(title = "Exponential 6 Band Log Vulnerability Estimate Distribution", 
-       x = "LOG Vulnerability", 
-       y = "Frequency")
-
-# Open PNG device with ragg
-agg_png("C:/Users/shil5756/Pictures/Saved Pictures/SensitivityAnalysisR/collatedEXPband6.png", width = 6000, height = 1650, res = 300)
-
-# Arrange the plots side by side
-grid.arrange(expB6map, expB6Histogram, expB6logHistorgam, ncol = 3)
-
-# Close the PNG device to save the file
-dev.off()
-```
-
-
-
-
-
-
-
+For conclusions from this analysis, see the supplement of the dissertation paper. 
 
 
 
