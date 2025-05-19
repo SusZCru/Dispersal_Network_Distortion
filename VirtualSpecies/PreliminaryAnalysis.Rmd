@@ -6,6 +6,7 @@ output: html_document
 ---
 
 This rmd file entails the preliminary finding that guided virtual species creation; that precipition alteration due to climate change increases with elevation, and so does temperature to a lesser extent. This was used to guide the specialism and generalism of VS. 
+As in the rest of this repo, #explanations will only be given on first instance of code use
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
@@ -13,14 +14,16 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ##Install and Library packages
 
-```{r}
+```{r load pakcages}
+#use install.packages if needed
 library(terra)
 library(ggplot2)
 ```
-##Loading Rasters
+
+##Loading input climate and topology Rasters
 
 CTI raster
-```{r}
+```{r load CTI}
 CTI <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/CTI/CTI_5.tif")
 CTI
 ```
@@ -60,6 +63,7 @@ PrecChange_ssp370_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_D
 PrecChange_ssp245_2040
 PrecChange_ssp370_2040
 ```
+
 Can use plot to see
 ```{r}
 plot(PrecChange_ssp245_2040)
