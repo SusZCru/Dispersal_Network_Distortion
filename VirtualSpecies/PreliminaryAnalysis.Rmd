@@ -5,7 +5,12 @@ date: "2024-10-29"
 output: html_document
 ---
 
+# Preliminary Analysis
+
 This rmd file entails the preliminary finding that guided virtual species creation; that precipition alteration due to climate change increases with elevation, and so does temperature to a lesser extent. This was used to guide the specialism and generalism of VS. 
+
+The main goal is to load in the temperature and precipitation change rasters provided (which I made by subtracting the future from the current) and testing if this correlates with any topology in the landscape. 
+
 As in the rest of this repo, #explanations will only be given on first instance of code use
 
 ```{r setup, include=FALSE}
@@ -20,61 +25,67 @@ library(terra)
 library(ggplot2)
 ```
 
-##Loading input climate and topology Rasters
+##1) Load input climate and topology Rasters
 
 CTI raster
 ```{r load CTI}
-CTI <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/CTI/CTI_5.tif")
+CTI <- rast(here('data', 'PreliminaryData', 'CTI', 'CTI_5.tif'))
 CTI
 ```
 TPI raster
-```{r}
-TPI <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/TPI/TPI_6.tif")
+```{r Load TPI}
+TPI <- rast(here('data', 'PreliminaryData', 'TPI', 'TPI_6.tif'))
 TPI
 ```
 Roughness raster
-```{r}
-Ruff <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/Ruff/Ruff_5.tif")
+```{r Load roughness}
+Ruff <- rast(here('data', 'PreliminaryData', 'Ruff', 'Ruff_5.tif'))
 Ruff
 ```
 Elevation raster
-```{r}
-Elev <- rast("~/ArcGIS/Projects/Borneo_projection_testing/Exported_Normalised/Elevation/Elev.tif")
+```{r load elevation}
+#load file
+Elev <- rast(here('data', 'PreliminaryData', 'Elevation', 'Elevation.asc'))
+
+#view
 Elev
 plot(Elev)
 
-logElev <- log(Elev)
+#we may want to also have this in log data
+logElev <- log1p(Elev) #use log +1 as there are zero values
 plot(logElev)
 ```
 
 Now the Temp change rasters
-```{r}
-TempChange_ssp245_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/TempChange/TempChange245_2040norm.tif")
-TempChange_ssp370_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/TempChange/TempChange370_2040norm2.tif")
+```{r load temp change rasters}
+#load the temp change raster for ssp245
+TempChange_ssp245_2040 <- rast(here('data', 'PreliminaryData', 'TempChange', 'TempChange245_2040norm.tif'))
+#load the temp change raster for ssp370
+TempChange_ssp370_2040 <- rast(here('data', 'PreliminaryData', 'TempChange', 'TempChange370_2040norm2.tif'))
 
+#view
 TempChange_ssp245_2040
 TempChange_ssp370_2040
 ```
 And Precipitation Change rasters
-```{r}
-PrecChange_ssp245_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/PrecChange/PrecChange245_2040norm.tif")
-PrecChange_ssp370_2040 <- rast("C:/Users/shil5756/Documents/Directories/Borneo_Dir/Exported_Normalised/PrecChange/PrecChange370_2040norm.tif")
+```{r load prec change rasters}
+#load the prec change raster for ssp245
+PrecChange_ssp245_2040 <- rast(here('data', 'PreliminaryData', 'PrecChange', 'PrecChange245_2040norm.tif'))
+#load the prec change raster for ssp370
+PrecChange_ssp370_2040 <- rast(here('data', 'PreliminaryData', 'PrecChange', 'PrecChange370_2040norm.tif'))
 
+#view
 PrecChange_ssp245_2040
 PrecChange_ssp370_2040
 ```
 
-Can use plot to see
-```{r}
-plot(PrecChange_ssp245_2040)
-```
+## 2) Explore Temperature climate change correlations
 
-## Explore Correlations
-
-Can use histograms, look for normality
-```{r}
+Can use histograms to observe the distribution
+```{r Histogram of Data}
+#use par() to display side by side
 par(mfrow = c(3, 3))
-hist(PrecChange_ssp245_2040,
+hist(PrecChange_ssp245_2040, #uses consistant number of breaks
      breaks = 50,
      main= "Precip Change ssp245")
 hist(PrecChange_ssp370_2040, 
@@ -98,12 +109,16 @@ hist(Ruff,
 hist(logElev,
      breaks= 50,
      main= "Log Elevation")
+hist(Elev,
+     breaks= 50,
+     main= "Elevation")
 ```
 Or use plots, I will set the transparency very low in order to see the trend within alot of data
 
 I have crated this function for multiple use;
-```{r}
-
+```{r Load plotting function}
+#this function will plot a correlation between desired variables, 
+#as well as test a specified statistic
 explore_cor <- function(x, y, x_name, y_name, cor.method){
   Lr <- lm(values(y) ~ values(x))
   
@@ -118,11 +133,10 @@ explore_cor <- function(x, y, x_name, y_name, cor.method){
   cor.test(values(x), values(y), method= cor.method) 
 
 }
-
 ```
 
-0) Temp Change ssp245: Elevation
-```{r}
+#### a) Temp Change ssp245: Elevation
+```{r Does Temperature scale with elevation?}
 explore_cor(x= logElev, y= TempChange_ssp245_2040, 
             x_name= "log transformed Elevation", 
             y_name= "Temperature Change, Current - 2041 ssp245", 
@@ -131,8 +145,8 @@ explore_cor(x= logElev, y= TempChange_ssp245_2040,
 # rho = -0.2703917, p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
 ```
 
-1) Temp Change ssp245: CTI
-```{r}
+#### b) Temp Change ssp245: CTI
+```{r Does Temperature scale with Wetness Index?}
 explore_cor(x= CTI, y= TempChange_ssp245_2040, 
             x_name= "Wetness Index (CTI)", 
             y_name= "Temperature Change, Current - 2041 ssp245", 
@@ -141,69 +155,42 @@ explore_cor(x= CTI, y= TempChange_ssp245_2040,
 # rho = -0.2703917, p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
 ```
 
-
-2) Temp Change ssp370: CTI
-```{r}
-plot(values(logElev), values(TempChange_ssp245_2040),
-     xlab= "Log Elev",
-     ylab= "Temperature Change, Current - 2041 ssp245",
-     cex= 0.4,
-     col = rgb(red = 0, green = 0, blue = 1, alpha = 0.005)
-     ) 
-
-# rho = -0.2820622 , p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
-```
-
-
-3) Temp Change ssp240: TPI
-```{r}
+#### c) Temp Change ssp245: TPI
+```{r Does Temperature scale with TPI?}
 explore_cor(x= TPI, y= TempChange_ssp370_2040, 
             x_name= "TPI", 
             y_name= "Temperature Change, Current - 2041 ssp240", 
             cor.method = 'spearman')
 
 # rho = -0.2820622 , p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
-
 ```
 
+## 3) Explore Precipitation climate change correlations
 
-
-
-
-
-
-
-
+#### a) Prec Change ssp245: Elevation
+```{r Does Temperature scale with elevation?}
+explore_cor(x= logElev, y= PrecChange_ssp245_2040, 
+            x_name= "log transformed Elevation", 
+            y_name= "Precipitation Change, Current - 2041 ssp245", 
+            cor.method = 'spearman')
 ```
 
-```{r}
-plot(values(logElev), values(TempChange_ssp245_2040),
-     xlab= "Log Elev",
-     ylab= "Temperature Change, Current - 2041 ssp245",
-     cex= 0.4,
-     col = rgb(red = 0, green = 0, blue = 1, alpha = 0.005)
-     ) 
-```
-### saving for backup
-
-Backup skeleton of explore.cor function
-```{r}
-#make a linear regression or us to view what the line would look like
-Lr_1 <- lm(values(TempChange_ssp245_2040) ~ values(logElev))
-Lr_1
-
-#Plot the data and line to visualise
-plot(values(logElev), values(TempChange_ssp245_2040),
-     xlab= "Log Elev",
-     ylab= "Temperature Change, Current - 2041 ssp245",
-     cex= 0.4,
-     col = rgb(red = 0, green = 0, blue = 1, alpha = 0.005)
-     ) 
-
-#perform correlation test, as the histograms are not very normal, we will use non-parametric
-cor.test(values(CTI), values(TempChange_ssp245_2040), method= 'spearman') 
+#### b) Prec Change ssp245: CTI
+```{r Does Precipitation scale with Wetness Index?}
+explore_cor(x= CTI, y= PrecChange_ssp245_2040, 
+            x_name= "Wetness Index (CTI)", 
+            y_name= "Precipitation Change, Current - 2041 ssp245", 
+            cor.method = 'spearman')
 
 # rho = -0.2703917, p-value < 2.2e-16, alternative hypothesis: true rho is not equal to 0
-
 ```
 
+#### c) Prec Change ssp245: TPI
+```{r Does Precipitation scale with TPI?}
+explore_cor(x= TPI, y= PrecChange_ssp245_2040, 
+            x_name= "TPI", 
+            y_name= "Precipitation Change, Current - 2041 ssp240", 
+            cor.method = 'spearman')
+```
+
+This process can be repeated with the ssp370 data provided. We found in other analysis that 245 better represented the needs of our study, so is displayed here. 
