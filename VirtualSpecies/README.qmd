@@ -1,0 +1,11 @@
+---
+title: "README"
+format: html
+editor: visual
+---
+
+## README
+
+Here you can find the scripts for the preliminary analysis used to guide creation fo virtual species with elevation-precipitation based specialisms, as well as the large script for creating the virtual species array.
+
+The outputs of this virtual species (the inputs for connectivity software) are saved in 'ConnectivityAlgorithm_inputs' for replication.

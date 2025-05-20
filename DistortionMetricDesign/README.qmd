@@ -1,0 +1,11 @@
+---
+title: "README"
+format: html
+editor: visual
+---
+
+## README
+
+Here, you can find the script for the sensitivity analysis of our novel network distortion metric, as well as backup of the tool (in python script).
+
+If you would rather find the tool in a more intuitive ModelBuilder format, either download the tool in 'Download_the_Metric' and open the tool with 'edit' in ARCGIS, or view the supplement of the dissertation.

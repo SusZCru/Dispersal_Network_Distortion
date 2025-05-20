@@ -1,0 +1,11 @@
+---
+title: "README"
+format: html
+editor: visual
+---
+
+## README
+
+Here, you can find the scripts for both data preparation and analysis presented in the dissertation; exploring the relationship between corridor strength and climate-induced distortion vulnerability.
+
+Many of the GAM and GLMMs are very large, it is advised that you load our own rather than rerun, unless explicitly re-sampling for replication.

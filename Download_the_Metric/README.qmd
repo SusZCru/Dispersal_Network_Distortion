@@ -1,0 +1,19 @@
+---
+title: "README"
+format: html
+editor: visual
+---
+
+## README
+
+Here, you can find the open-cource ARCGIS Toolbox 'DistortionMapper'. Download this file and import .gpkx toolbox into ARCGIS to use the 'Calculate Network Distortion' Tool.
+
+The tool requires three inputs:
+
+-   Your baseline LCP network (.tif)
+
+-   Your compariosn/future LCP network (.tif). The two networks must conform in crs, pixel dimensions and extent.
+
+-   A 'Zone' raster (.tif or .lyrx). This is simply a raster where the area that your entire networks are enclosed (e.g. the country or island) is given '1' and all other pixels NA (or -9999). It must be in the same crs, pixel dimensions and extent as the networks. This is used to streamline calculation of percentile thresholds in weighting.
+
+In this file is also includes example inputs: our low elevation, short ranging dispersal type, wet precipitation specialist (LW50000), in both a baseline (1970-2000) and severe future scenarios (2021-2040, ssp585), as well as the Zone (contiguous borneo).
