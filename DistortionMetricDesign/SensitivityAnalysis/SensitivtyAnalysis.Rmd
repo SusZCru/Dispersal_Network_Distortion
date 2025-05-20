@@ -5,13 +5,15 @@ date: "2025-01-20"
 output: html_document
 ---
 
+# Sensitivity Analysis
+
 This code entails the sensitivty analysis and graphs produced in the supplement of our study. This analysis aims to produce histograms of the data produced by the different arbitrary strength banding, as well as plot computaiton time. As with all the repository, #explanations will only be shown on first instance of the code's use.
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#Load required packages
+## Load required packages
 ```{r load pakcages}
 #use install.packages() if needed
 library(terra)
@@ -21,7 +23,7 @@ library(ragg)
 library(here)
 ```
 
-#functions
+## Functions
 
 ```{r Load functions}
 #this function was used to save png images, though saving is not shown in this public facing code
@@ -39,9 +41,9 @@ save_figure <- function(Figure_to_save,
 }
 ```
 
-### Part 1: create the data
+## Part 1: create the data
 
-##Import the band 1 metric to test
+### a) Import the band 1 metric to test
 I am importing as tif
 
 ```{r Load Band 1}
@@ -71,7 +73,7 @@ band1SD <- sd(band1values) # = 6.831418
 band1time <- 40
 ```
 
-#Repeat to get values for all the bands
+### b) Repeat for all bands
 
 2 band
 ```{r LOad Band 2}
@@ -163,7 +165,9 @@ expband6SD <- sd(expband6values)
 expband6time <- 148
 ```
 
-#collate the data into a single object so we can plot it
+### c) collate the data 
+
+collate into a single object so we can plot it
 ```{r Create Single Dataframe}
 #Build each column using c()
 names <- c('1band', '2band', '3band', '4band', '5band', '10band', '20band', 'exp4band', 'exp5band', 'exp6band')
@@ -180,9 +184,9 @@ BandStatsDf <- data.frame(Bandname= names, mean= means, median= medians, bands= 
 BandStatsDf$metric_type <- factor(BandStatsDf$metric_type, levels = c('exponential', 'linear'))
 ```
 
-### Part 2: Comparison Plots
+## Part 2: Comparison Plots
 
-#plot the means against number of bands
+### a) Plot the means against number of bands
 
 ```{r Plot means v banding}
 #plot means v banding
@@ -199,7 +203,7 @@ ggplot(BandStatsDf,
 #save it if desired
 ```
 
-# plot the medians against number of bands
+### b) Plot the medians against number of bands
 
 ```{r plot medians v banding}
 ggplot(BandStatsDf, 
@@ -213,7 +217,7 @@ ggplot(BandStatsDf,
   theme_minimal()
 ```
 
-#plot the computation time against number of bands
+### c) Plot the computation time against number of bands
 
 ```{r plot computation v banding}
 ggplot(BandStatsDf, 
@@ -227,7 +231,7 @@ ggplot(BandStatsDf,
   theme_minimal()
 ```
 
-#plot the computation time against means
+### d) Plot the computation time against means
 
 ```{r plot computation v means}
 ggplot(BandStatsDf, 
@@ -242,9 +246,9 @@ ggplot(BandStatsDf,
   theme_minimal()
 ```
 
-### PART 3: Histograms to understand the data
+## Part 3: Histograms to understand the data
 
-#Explore Histogram
+### a) Untransformed Histogram
 
 1 Band
 ```{r Hist, band 1}
@@ -398,7 +402,7 @@ ggplot(expband6values,
        y = "Frequency")
 ```
 
-## Experiment with transformations
+### b) Transformations
 
 there is clearly some influential thing happening with banding structure, but it is hard to see. so we will plot the log response histogram too. 
 

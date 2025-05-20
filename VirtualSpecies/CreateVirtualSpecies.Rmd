@@ -5,6 +5,8 @@ date: "2024-11-09"
 output: html_document
 ---
 
+# Create Virtual Species
+
 In this code we start with the creation of virtual species, and use these to genorate resistance rasters and population presence points; the inputs for connectivity analysis. 
 As in the rest of the repository, #explanations will only be shown in first instance of codes use
 
@@ -12,7 +14,7 @@ As in the rest of the repository, #explanations will only be shown in first inst
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Install the packages, and library. Library the other dependencies.
+## Install the packages, and library
 ```{r isntall packages}
 #use isntall.packages() if needed
 library(virtualspecies)
@@ -27,7 +29,7 @@ library(spatialEco)
 ```
 
 
-## 1) Load Input Layers
+## PART 1: Load Input Layers
 
 ```{r Load input layers}
 #Load enviornemntal layers as SpatRaster
@@ -43,11 +45,13 @@ EnvLayers
 
 We can see that they are the correct format (SpatRaster), sharing the same extent and resolution, and CRS.
 
-## 2) Initial Suitability functions
+## PART 2: Initial Suitability functions and PA
 
 For reference. We plan to create 6 species, 2 sets of 3. In each set there will be a Generalist, Wet Specialist, and Dry specialist. There will be a set for High and Low Elevation (so 6 in total).
 
-# The parameters are as follows:
+### a) Specilism Paramiters
+
+The parameters are as follows:
 
 Elevation (range)
 
@@ -69,7 +73,7 @@ Lowland dry  = 2496.18 (range; 1572-2957, sd; 314.665) *LD*
 Lowland wet  = 3420.59 (range; 2958-4310, sd; 331.150) *LW*
 Lowland Gen  = 2955.42 (range; 1572-4310, sd; 563.852) *LG*
 
-# Example: Highland DRY Specialist
+### b) Set ISF and PA (HD)
 
 prefers temperatures of 23.07* (dnorm), precipitation around 2601.74 l/yr (dnorm), and elevations above 479m from sea level (sigmoidal relationship is most appropriate). 
 
@@ -94,9 +98,6 @@ We should use a consistant way to set prevelence; such as 5% of the total land a
 
 We also need to use a consistant alpha value for the logistic transformation, so that the shape of the probabiltiy of occurence is the same for each VS; meaning the only thing that changes is their preferences.
 
-### Used VS:
-
-#Highland DRY Specialist
 this is the same process, with the addition that we convert the probability occurence raster to presence/asbence
 
 ```{r Set HD VS, and collect PA}
@@ -123,9 +124,9 @@ plotSuitabilityToProba(Presence_HD)
 plot(Presence_HD$pa.raster)
 ```
 
-we can repeat this with all species
+### c) Repeat  with all species
 
-#Highland WET Specialist
+####> Highland WET Specialist
 ```{r Set HW VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_HW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
@@ -150,7 +151,7 @@ plotSuitabilityToProba(Presence_HW)
 plot(Presence_HW$pa.raster)
 ```
 
-### High Elevation Generalist
+####> High Elevation Generalist
 ```{r Set HG VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_HG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 23.07, sd = 1.573),
@@ -175,7 +176,7 @@ plotSuitabilityToProba(Presence_HG)
 plot(Presence_HG$pa.raster)
 ```
 
-### Low Elevation DRY specialist
+####> Low Elevation DRY specialist
 ```{r Set LD VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_LD <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
@@ -202,7 +203,7 @@ plotSuitabilityToProba(Presence_LD)
 plot(Presence_LD$pa.raster)
 ```
 
-### Low Elevation WET specialist
+####> Low Elevation WET specialist
 ```{r Set LW VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_LW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
@@ -229,8 +230,7 @@ plotSuitabilityToProba(Presence_LW)
 plot(Presence_LW$pa.raster)
 ```
 
-
-## Low Elevation Generalist
+####> Low Elevation Generalist
 ```{r Set LG VS, and collect PA}
 #Set the env-suitability relationship functions, the collection of functions is the Initial suitability function (ISF)
 ISF_LG <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
@@ -257,9 +257,10 @@ plotSuitabilityToProba(Presence_LG)
 plot(Presence_LG$pa.raster)
 ```
 
-###############################################################################
 
-### Save the habitat suitability and population area for Export to ARCGIS
+### d)  Save the habitat suitability and population area 
+
+this is for Export to ARCGIS, for visualisation of the process, as well as potential further analyses.
 
 This is just to showcase the process. The True Habitat suitability is transformed into a smaller population distribution liklihood (which puts them in the most suitable places, with comparable populations sizes), and these pixel probabilities are used to radnomly draw a Presence Absence True Population. 
 ```{r view the three raster outputs}
@@ -313,11 +314,12 @@ writeRaster(Presence_LG$pa.raster, '')
 
 ```
 
-################################################################################
 
-### Sampling Presence/Absence
+## PART 3: Sample Presence/Absence
 
 Now we want to create the start/end points (population sites) used in the connecitivty graphing. If we were to set this at, say, 1000 points, the species with smaller range would be more concentrated. Instead, I specify no sample size of presences and just sample 6,000 points (pesence or absence) randomly. This will cause our detected occurences to reflect the size of the population beneath.
+
+### a) Sample
 
 as such;
 ```{r sample detected occurence points, HD}
@@ -333,7 +335,7 @@ And save these coordinates (as P_HD2.csv) so we can look at them:
 write.csv(SampledOcc_HD$sample.points, "")
 ```
 
-#Clean the PA points for connectivity analysis 
+### b) Clean the PA points 
 
 Now we can load and interrogate them. Here I take a few steps to format these points for input into CoLa.
 
@@ -351,6 +353,8 @@ HD_coords2_only <- subset(HD_coords2, select = c(x, y))
 HD_presenceonly2 <- HD_coords2[HD_coords2$Observed == 1, ]
 
 ```
+
+### c) Map Occurences
 
 Plot ontop of the HSI:
 ```{r plot PA points on habitat suitability}
@@ -379,6 +383,8 @@ nrow(HD_coords2) #6,000
 nrow(HD_presenceonly2) #183
 ```
 
+### d) Save the Occurence Points Array
+
 Now, we need to save the presence only dataset as a .XY file for input into connectivity software (this is the needed input)
 ```{r Create PXY file}
 # make a dataset that is only the XY coordinates of presence
@@ -388,6 +394,8 @@ HD_PXY <- subset(HD_presenceonly2, select = c(x, y))
 write.csv(HD_PXY, 
           "/PXY_HD.csv")
 ```
+
+### e) Quality Check
 
 One assumption CoLa needs is that the coords fit within the raster extent
 ```{r retrieve extent}
@@ -413,6 +421,8 @@ anyNA(HD_resistanceASC)
 
 This is the smallest population distribution so, theoretically, will get the smallest sample. But a sample of 167 is not bad.
 
+### f) Convert to Resistance (example)
+
 Lastly, connectivity software often request for the resistance raster in ASCII format. The resistance raster can be made quite simply by loading the habitat suitability into arcgis and using raster calculator to invert, following any inversion method of your choosing. 
 
 This inversion can be done in R as so:
@@ -437,11 +447,12 @@ plot(HD_resi)
 
 You will still have to use raster to ASCII in arcgis. I have saved my ascii files within the github repository for use if needed.
 
-# This process must be repeated to genorate the PXY and Resistance.asci for all species
+### g) Repeat for All Species
 
+This process must be repeated to genorate the PXY and Resistance.asci for all species
 here I include code with less explanation
 
-## 2) HG
+####> HG
 
 ```{r HG PXY and Resistance.asci}
 #Load the popualtion distribution of HG
@@ -495,7 +506,7 @@ if (any_na) {
 plot(HG_resi)
 ```
 
-## 3) HW
+####> HW
 
 ```{r HW PXY and Resistance.asci}
 #Load the popualtion distribution of HW
@@ -550,7 +561,7 @@ plot(HW_resi)
 ```
 
 
-## 4) LD
+####> LD
 
 ```{r LD PXY and Resistance.asci}
 #Load the popualtion distribution of LD
@@ -604,7 +615,7 @@ if (any_na) {
 plot(LD_resi)
 ```
 
-## 5) LG
+####> LG
 
 ```{r LG PXY and Resistance.asci}
 #Load the popualtion distribution of LG
@@ -658,7 +669,7 @@ if (any_na) {
 plot(LG_resi)
 ```
 
-## 6) LW
+####> LW
 
 ```{r LW PXY and Resistance.asci}
 #Load the popualtion distribution of LW
@@ -716,11 +727,11 @@ Once you have taken these into ARCGIS to rpoduce resitance asciis, you have the 
 
 Yes that means we still have to repeat this entire process after applying the virtual species to a future scenario!
 
-################################################################################
-
-### Genorating inputs for future networks
+## PART 4: Genorating inputs for Future Networks
 
 First we need to load the future environmental data; the projected temperature and precipitaiton. Before loading these, you must ensure they have the same extent (in my case Borneo) and pixel dimensions in order for everything to work together. 
+
+### a) load future scenario
 
 ```{r Load projected scenario enviornmental data}
 #repeat above loading process with projected scenario environmental data
@@ -772,7 +783,9 @@ ISF_LW <- formatFunctions(MeanTemp = c(fun = 'dnorm', mean = 26.73, sd = 0.741),
                           Elevation = c(fun = 'logisticFun', beta = 479, alpha = 70))
 ```
 
-# Now all we need is to make the new Habitat suitability, and use that as a resistance raster
+### b) Re-genorate Resistance from ISF 
+
+Now all we need is to make the new Habitat suitability, and use that as a resistance raster
 
 we do not need to make new presence points, as this is a purposeful assumption in our study. However, future research should endevour to model how the the movement of these points may effect corridor spatial dynamics. 
 
@@ -1039,7 +1052,7 @@ These can be converted into resistance in R, but I reccomend doing so using the 
 
 Once done so, you can make a 'ConnectivityAlgorithm_inputs' folder. It needs the resitance raster in .asci, and the Presence only points (usually in .XY, or .csv), but may vary depending on the software. 
 
-### Conclusion
+## Conclusion
 
 Upon doing so, you can now compile inputs for both baseline and future scenarios, allowing you to genorate the baseline and comparison corridor networks. I have supplied my ColA input folders in the 'ConnectivityAlgorithm_inputs' folder in VirtualSpecies. This is the output of this workpackage.
 
