@@ -6,9 +6,21 @@ editor: visual
 
 ## README
 
-Here, you can find the open-cource ARCGIS Toolbox 'DistortionMapper'. Download this file and import .gpkx toolbox into ARCGIS to use the 'Calculate Network Distortion' Tool.
+Here, you can find the open-cource ARCGIS project 'DistortionMapper2'. This contains example data for a practice run, and the .atbx file (the toolbox with DistortionMapper2 tool in it). Download this file to your divice and open the project 'DistoritonMapper2.ppkx' to use the example data. To use the tool in your own package, simply tab open the DistortionMapper2 toolbox, and you will see the model. Copy the model, and then paste it into the toolbox of your own projecy. You will be able to then use your own data. This will also allow you to edit the model in model builder, or convert to python.
 
-The tool requires three inputs:
+This tool (version 2) requires two inputs:
+
+-   Your baseline LCP network (.tif)
+
+-   Your compariosn/future LCP network (.tif). The two networks must conform in crs, pixel dimensions and extent.
+
+Both should have the pixels that are not corridors with values of '0'. Some least cost corridor rasters may have the unused pixels with '0.00001' or something similar. To use the metric, make the assumption at anything below 0.1 (or 0.001, whatever is suitable) is not usable corridors; use raster calculator to reassign all pixels below this threshold as '0'. 
+
+In this file is also includes example inputs: our low elevation, short ranging dispersal type, wet precipitation specialist (LW50000), in both a baseline (1970-2000) and severe future scenarios (2021-2040, ssp585), as well as the Zone (contiguous borneo).
+
+(...)
+
+Version 1 of the tool requires three inputs:
 
 -   Your baseline LCP network (.tif)
 
@@ -16,4 +28,3 @@ The tool requires three inputs:
 
 -   A 'Zone' raster (.tif or .lyrx). This is simply a raster where the area that your entire networks are enclosed (e.g. the country or island) is given '1' and all other pixels NA (or -9999). It must be in the same crs, pixel dimensions and extent as the networks. This is used to streamline calculation of percentile thresholds in weighting.
 
-In this file is also includes example inputs: our low elevation, short ranging dispersal type, wet precipitation specialist (LW50000), in both a baseline (1970-2000) and severe future scenarios (2021-2040, ssp585), as well as the Zone (contiguous borneo).
