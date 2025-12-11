@@ -6,7 +6,9 @@ editor: visual
 
 ## README
 
-Here, you can find the open-cource ARCGIS project 'DistortionMapper2'. This contains example data for a practice run, and the .atbx file (the toolbox with DistortionMapper2 tool in it). Download this file to your divice and open the project 'DistoritonMapper2.ppkx' to use the example data. To use the tool in your own package, simply tab open the DistortionMapper2 toolbox, and you will see the model. Copy the model, and then paste it into the toolbox of your own projecy. You will be able to then use your own data. This will also allow you to edit the model in model builder, or convert to python.
+Here, you can find the open-cource geoproccessing package 'DistortionMapper2.gpkx'. This contains example data for a practice run, and the tool. Download this file to your device (recommende dusing Down Git, https://downgit.github.io/#/home, due to large files elsewhere in this repository) and save it in your files. Add it to your project, you will find it in the project files of the catalog pane. Left click and choose 'Add to Project'. The tool will appear in your 'recents' of the geoprocessing pane, and our example run rasters will be added to your contents pane. Use the example run data included, and follow guidelines to use your own data. 
+
+If you are interested in developing the model further, and seeing back end workings, please download the project 'DistortionMapper2.ppkx, instead'. From this, you can open the project file. This includes the example run data and the distortionmapper2 metric, this time as an unpublished model. You can open and edit this model in model builder. You cna copy and paste this model into the toolbox of your own projects, to edit it in different contexts.
 
 This tool (version 2) requires two inputs:
 
@@ -15,6 +17,8 @@ This tool (version 2) requires two inputs:
 -   Your compariosn/future LCP network (.tif). The two networks must conform in crs, pixel dimensions and extent.
 
 Both should have the pixels that are not corridors with values of '0'. Some least cost corridor rasters may have the unused pixels with '0.00001' or something similar. To use the metric, make the assumption at anything below 0.1 (or 0.001, whatever is suitable) is not usable corridors; use raster calculator to reassign all pixels below this threshold as '0'. 
+
+Both inputs must have the same dimensions, resolution, CRS, and projection.
 
 In this file is also includes example inputs: our low elevation, short ranging dispersal type, wet precipitation specialist (LW50000), in both a baseline (1970-2000) and severe future scenarios (2021-2040, ssp585), as well as the Zone (contiguous borneo).
 
